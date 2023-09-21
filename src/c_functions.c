@@ -35,7 +35,9 @@ float* leaky_relu(int batch_size, float* input, int channels, int height, int wi
 
 }
 
-float* batch_norm(){}
+float* batch_norm(int input_size, float* input, int input_height, int input_width) {
+
+}
 
 float* conv2d(int batch_size, float* input, int input_channels, int input_height, int input_width,
               float* weight, int kernel_height, int kernel_width,
@@ -84,7 +86,7 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
     return output;
 }
 
-void* max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride) {
+float* max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride) {
     int output_height = floor((input_height-kernel_height)/stride) +1;
     int output_width = floor((input_width-kernel_width)/stride) +1;
     int output_size = output_height*output_width;
@@ -111,4 +113,7 @@ void* max_pool2d(float* input, int input_height, int input_width, int kernel_wid
     return output;
 }
 
-float* pad(){}
+float* pad(float* input, int stride, int input_height, int input_width, int padding_size, int output_height, int output_width) {
+    int output_size =output_height*output_width;
+    float* output = (float*)malloc(output_size*sizeof(float));
+}
