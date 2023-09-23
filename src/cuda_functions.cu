@@ -74,18 +74,25 @@ __global__ void _max_pool2d(float* input, int input_height, int input_width, int
         }
         output[row*output_width+col] = max_value;
     }
+    
 }
 float* max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride){
+    float* output, *device_input, *device_output;
     int output_height = floor((input_height-kernel_height)/stride) +1;
     int output_width = floor((input_width-kernel_width)/stride) +1;
-    float* output, *device_input, *device_output;
     int output_size = output_height*output_width;
     int input_size = input_height* input_width*sizeof(float);
+
     cudaMalloc((void**)&device_input, input_size);
     cudaMalloc((void**)&device_output, output_size * sizeof(float));
 
     cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
-    _max_pool2d<<<1, input_size>>>(device_input, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_width, output_height);
+    cudaMemset(device_output, 0, output_size*sizeof(float));
+
+    dim3 threadsPerBlock(16, 16);
+    dim3 numBlocks((output_width + threadsPerBlock.x - 1) / threadsPerBlock.x, (output_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+    _max_pool2d<<<numBlocks, threadsPerBlock>>>(device_input, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_width, output_height);
     cudaMemcpy(output, device_output,output_size, cudaMemcpyDeviceToHost);
     cudaFree(device_input);
     cudaFree(device_output);
