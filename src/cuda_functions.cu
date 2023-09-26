@@ -45,8 +45,42 @@ void block_cpu(){
 //   CUDA function
 //   Interface function that calls CUDA function
 // Note that interface function gets the float pointer already malloced at GPU
-__global__ void _leaky_relu(int batch_size, int channels, int height, int width, int negative_slope){}
-float* leaky_relu(int batch_size, int channels, int height, int width, int negative_slope){
+__global__ void _leaky_relu(float* input, float* output, int batch_size, int channels, int height, int width, int negative_slope){
+
+    const uint col = blockIdx.x * blockDim.x + threadIdx.x;
+    const uint row = blockIdx.y * blockDim.y + threadIdx.y;
+
+    uint index = width * row + col;
+    
+    if (input[index] <= 0) {
+        output[index] = negative_slope * input[index];
+    } else {
+        output[index] = input[index];
+    }
+
+}
+
+
+float* leaky_relu(float* input, int batch_size, int channels, int height, int width, int negative_slope){
+
+    float* output, *device_output, *device_input;
+
+    int size = batch_size * channels * height * width;
+    
+    cudaMalloc((void**)&device_input, size * sizeof(float));
+    cudaMalloc((void**)&device_output, size * sizeof(float));
+
+    cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemset(device_output, 0, size * sizeof(float));
+
+    dim3 threadPerBlock(32, 32);
+    dim3 numBlocks((width + threadPerBlock.x - 1) / threadPerBlock.x, (height + threadPerBlock.y - 1) / threadPerBlock.y);
+
+    _leaky_relu<<<numBlocks, threadPerBlock>>>(device_input, device_output, batch_size, channels, height, width, negative_slope);
+    cudaMemcpy(output, device_output, size * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(device_input);
+    cudaFree(device_output);
+    return output;
 
 }
 

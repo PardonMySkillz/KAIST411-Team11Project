@@ -17,8 +17,8 @@ float* batch_norm(){}
 __global__ void _conv2d(){}
 float* conv2d(){}
 
-__global__ void _max_pool2d(){}
-float* max_pool2d(){}
+__global__ void _max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride, float* output, int output_width, int output_height){}
+float* max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride){}
 
 __global__ void _pad(){}
 float* pad(){}
