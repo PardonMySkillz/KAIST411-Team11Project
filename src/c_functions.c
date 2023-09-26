@@ -84,28 +84,32 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
     return output;
 }
 
-void* max_pool2d(float* input, int input_height, int input_width, int kernel_width, int kernel_height, int stride) {
-    int output_height = floor((input_height-kernel_height)/stride) +1;
-    int output_width = floor((input_width-kernel_width)/stride) +1;
-    int output_size = output_height*output_width;
+void* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride) {
+    int output_height = floor((input_height - kernel_height) / stride) + 1;
+    int output_width = floor((input_width - kernel_width) / stride) + 1;
+    int output_size = output_height * output_width * input_channel * batch_size;
     float* output = (float*)malloc(output_size * sizeof(float));
     if (output == NULL) {
         return NULL;
     }
-    for (int row =0; row < output_height; row++) {
-        for (int col =0; col < output_width; col++) {
-            int start_row = row *stride;
-            int start_col = col * stride;
-            float max_value = input[start_row * input_width + start_col];
-            for (int i = 0; i < kernel_height; i ++) {
-                for (int j =0; j < kernel_width; j++) {
-                    float curr_value = input[(start_row+i)*input_width+(start_col+j)];
-                    if (curr_value > max_value) {
-                        max_value = curr_value;
+    for (int b = 0; b < batch_size; b++) {
+        for (int c = 0; c < input_channel; c++) {
+            for (int row = 0; row < output_height; row++) {
+                for (int col = 0; col < output_width; col++) {
+                    int start_row = row * stride;
+                    int start_col = col * stride;
+                    float max_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (start_row * input_width) + start_col];
+                    for (int i = 0; i < kernel_height; i++) {
+                        for (int j = 0; j < kernel_width; j++) {
+                            float curr_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + i) * input_width) + (start_col + j)];
+                            if (curr_value > max_value) {
+                                max_value = curr_value;
+                            }
+                        }
                     }
+                    output[(b * input_channel * output_height * output_width) + (c * output_height * output_width) + (row * output_width) + col] = max_value;
                 }
             }
-            output[row*output_width+col] = max_value;
         }
     }
     return output;

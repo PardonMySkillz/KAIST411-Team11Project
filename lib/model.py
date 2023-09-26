@@ -26,4 +26,4 @@ def YOLOv2(activation, weight):
 
     For specific layer configuration, refer to `./references/yolov2-tiniy-voc.cfg` or `./references/yolo2-tiniy-voc.onnx`.
     """
-    pass
+    
