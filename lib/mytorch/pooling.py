@@ -1,6 +1,7 @@
 from .base import Functional, c_dll, cu_dll, cuo_dll
 import torch
-from ctypes import *
+import numpy as np
+import ctypes
 
 class MaxPool2d(Functional):
     """
@@ -31,8 +32,39 @@ class MaxPool2d(Functional):
         return torch.nn.functional.max_pool2d(activation, kernel, stride=stride)
 
     def c(self, activation, kernel, stride):
-        # TODO
-        pass
+        activation_ptr = activation['pointer']
+        activation_shape = activation['shape']
+        activation_c = ctypes.cast(activation_ptr, ctypes.POINTER(ctypes.c_float))
+
+        N, ic, h, w = activation_shape
+        kernel_width = kernel
+        kernel_height = kernel
+        input_height = h
+        input_width = w
+
+        output_height = (input_height-kernel_height) // stride +1
+        output_width = (input_width-kernel_width) // stride +1
+        output_size = output_height*output_width
+
+        output_c = (ctypes.c_float * output_size)()
+        c_dll.max_pool2d.restype = ctypes.POINTER(ctypes.c_float)
+
+        output_ptr = c_dll.max_pool2d (
+            activation_c,
+            input_height,
+            input_width,
+            kernel_width,
+            kernel_height,
+            stride
+        )
+        ctypes.memmove(output_c, output_ptr, output_size * ctypes.sizeof(ctypes.c_float))
+        
+        output = {
+            'pointer': ctypes.cast(output_c, ctypes.c_void_p).value,
+            'shape': (N, ic, output_height, output_width)
+        }
+        return output
+        
     
     def cuda(self, activation, kernel, stride):
         # TODO
