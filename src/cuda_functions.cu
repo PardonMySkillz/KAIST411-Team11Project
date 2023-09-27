@@ -47,7 +47,13 @@ void block_cpu(){
 // Note that interface function gets the float pointer already malloced at GPU
 __global__ void _leaky_relu(float* input, float* output, int batch_size, int channels, int height, int width, int negative_slope){
 
-    uint index = blockIdx.x * blockDim.x + threadIdx.x;
+    uint batch = blockIdx.x;
+    uint channel = blockIdx.y;
+
+    uint row = threadIdx.x;
+    uint col = threadIdx.y;
+
+    uint index = batch * channels * height * width + channel * height * width + row * width + col;
     
     if(input[index] < 0) {
         output[index] = negative_slope * input[index];
