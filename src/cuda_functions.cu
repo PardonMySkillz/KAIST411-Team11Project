@@ -61,8 +61,8 @@ float* leaky_relu(float* input, int batch_size, int channels, int height, int wi
     float* output, *device_input, *device_output;
     unsigned long size = batch_size * channels * height * width;
 
-    cudaMalloc((void **) device_input, size * sizeof(float));
-    cudaMalloc((void **) device_output, size * sizeof(float));
+    cudaMalloc((void **) &device_input, size * sizeof(float));
+    cudaMalloc((void **) &device_output, size * sizeof(float));
 
     cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(device_output, 0, size * sizeof(float));
