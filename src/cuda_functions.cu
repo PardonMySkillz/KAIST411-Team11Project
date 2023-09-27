@@ -121,7 +121,20 @@ __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int
 }
 
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
+    float* output, *device_output, *device_input;
+    int size = batch_size * input_channel * input_height * input_width;
+    cudaMalloc((void**)&device_input, size * sizeof(float));
+    cudaMalloc((void**)&device_output, size * sizeof(float));
 
+    cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemset(device_output, 0, size * sizeof(float));
+    dim3 threadPerBlock(32, 32);
+    dim3 numBlocks((input_width + threadPerBlock.x - 1) / threadPerBlock.x, (input_height + threadPerBlock.y - 1) / threadPerBlock.y);
+    _max_pool2d<<<numBlocks, threadPerBlock>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output);
+    cudaMemcpy(output, device_output, size * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(device_input);
+    cudaFree(device_output);
+    return output;
 }
 
 __global__ void _pad(){}
