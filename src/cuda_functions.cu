@@ -86,8 +86,14 @@ float* leaky_relu(float* input, int batch_size, int channels, int height, int wi
 
 }
 
-__global__ void _batch_norm(){}
-float* batch_norm(){}
+__global__ void _batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){}
+float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
+    float* output, *device_input, *device_output;
+    float *d_running_mean, *d_running_var, *d_weight, *d_bias;
+    unsigned long io_size = batch_size * channels * height * width;
+    unsigned long 
+
+}
 
 __global__ void _conv2d(){}
 float* conv2d(){}
