@@ -29,9 +29,11 @@ def YOLOv2(activation, weight):
     #in dictionary form
     kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
     mean, var, gamma, beta = weight[0]['bn']['mean'], weight[0]['bn']['var'], weight[0]['bn']['gamma'], weight[0]['bn']['beta']
-
-    N, C, H, W = activation['shape']
-
+    print(activation.shape)
+    print(type(activation))
+    N, C, H, W = activation.shape
+    print("len(weight)",len(weight))
+    print("weight[0]", weight[0].keys())
     #1
     activation = F.pad(activation, (1,1,1,1), 0)
     activation = F.conv2d(activation, kernel, bias, 1)
