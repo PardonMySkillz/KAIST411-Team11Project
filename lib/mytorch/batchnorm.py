@@ -1,5 +1,6 @@
 from .base import Functional, c_dll, cu_dll, cuo_dll
 import torch
+import numpy as np
 from ctypes import *
 
 class BatchNorm2d(Functional):
@@ -27,7 +28,22 @@ class BatchNorm2d(Functional):
         return torch.nn.functional.batch_norm(activation, running_mean, running_var, weight, bias)
 
     def c(self, activation, running_mean, running_var, weight, bias):
-        # TODO
+        batch_size, channel, height, width = activation.shape[0], activation.shape[1], activation.shape[2], activation.shape[3]
+        input_array = np.ascontiguousarray(activation)
+        weight_array = np.ascontiguousarray(weight)
+        bias_array = np.ascontiguousarray(bias)
+        running_mean_array = np.ascontiguousarray(running_mean)
+        running_var_array = np.ascontiguousarray(running_var)
+        c_dll.batch_norm.restype = POINTER(c_float)
+        output = c_dll.batch_norm(
+            input_array.ctypes.data_as(POINTER(c_float)), c_int32(batch_size), c_int32(channel), c_int32(height), c_int32(width),
+            running_mean_array.ctypes.data_as(POINTER(c_float)), running_var_array.ctypes.data_as(POINTER(c_float)),
+            weight_array.ctypes.data_as(POINTER(c_float), bias_array.ctypes.data(POINTER(c_float)))
+        )
+        arr_output = np.ctypeslib.as_array(output, (batch_size*channel*height*width, 1))
+        arr_copied = np.copy(arr_output)
+        c_dll.free(output)
+        return torch.from_numpy(arr_copied.reshape((batch_size,channel, height, width)))
         pass
     
     def cuda(self, activation, running_mean, running_var, weight, bias):
