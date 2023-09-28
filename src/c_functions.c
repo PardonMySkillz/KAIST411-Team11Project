@@ -17,7 +17,7 @@ float* leaky_relu(int batch_size, float* input, int channels, int height, int wi
         return NULL;
     }
 
-    memset(output, 0.0, sizeof(float) * output_size);
+    // memset(output, 0.0, sizeof(float) * output_size);
 
     for (int b = 0; b < batch_size; b++) {
         for (int c = 0; c < channels; c++) {

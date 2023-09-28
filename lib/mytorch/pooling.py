@@ -36,12 +36,13 @@ class MaxPool2d(Functional):
         batch_size, in_channels, input_height, input_width = activation['shape']
         output_height = (input_height - kernel) // stride + 1
         output_width = (input_width - kernel) // stride + 1
-        input_array = np.ascontiguousarray(activation.numpy())
-        output = c_dll.max_pool2d(batch_size, input_array.ctypes.data_as(POINTER(c_float)), c_int32(in_channels), c_int32(input_height), c_int32(input_width),
+        input_array = activation['pointer']
+        output_poiinter = c_dll.max_pool2d(batch_size, input_array, c_int32(in_channels), c_int32(input_height), c_int32(input_width),
                                   c_int32(kernel),c_int32(kernel), c_int32(stride))
-        arr_output = np.ctypeslib.as_array(output, (batch_size*in_channels*output_height*output_width,1))
-        arr_copied = np.copy(arr_output)
-        return torch.from_numpy(arr_copied.reshape((batch_size,in_channels,output_height,output_width)))
+        output_shape = (batch_size, in_channels, output_height, output_width)
+        
+        output_array = {'pointer': output_poiinter, 'shape': output_shape}
+        return output_array
 
     def cuda(self, activation, kernel, stride):
         # TODO
