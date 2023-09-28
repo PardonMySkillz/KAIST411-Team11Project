@@ -85,5 +85,38 @@ def YOLOv2(activation, weight):
 
     #10
     kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
+
+    #11
+    kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
+    mean, var, gamma, beta = weight[0]['bn']['mean'], weight[0]['bn']['var'], weight[0]['bn']['gamma'], weight[0]['bn']['beta']
+    activation = F.pad(activation, (1,1,1,1), 0)
+    activation = F.conv2d(activation, kernel, bias, 1)
+    activation = F.batch_norm(activation, mean, var, gamma, beta)
+    activation = F.leaky_relu(activation, 0.1)
+
+    #12
+    activation = F.max_pool2d(activation,2, 1)
+
+    #13
+    kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
+    mean, var, gamma, beta = weight[0]['bn']['mean'], weight[0]['bn']['var'], weight[0]['bn']['gamma'], weight[0]['bn']['beta']
+    activation = F.pad(activation, (1,1,1,1), 0)
+    activation = F.conv2d(activation, kernel, bias, 1)
+    activation = F.batch_norm(activation, mean, var, gamma, beta)
+    activation = F.leaky_relu(activation, 0.1)
+
+    #14
+    kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
+    mean, var, gamma, beta = weight[0]['bn']['mean'], weight[0]['bn']['var'], weight[0]['bn']['gamma'], weight[0]['bn']['beta']
+    activation = F.conv2d(activation, kernel, bias, 1)
+    activation = F.batch_norm(activation, mean, var, gamma, beta)
+    activation = F.leaky_relu(activation, 0.1)
+
+    #15
+    kernel, bias = weight[0]['conv']['kernel'], weight[0]['conv']['bias']
+    activation = F.conv2d(activation, kernel, bias, 1)
+    activation = F.leaky_relu(activation, 0.1)
+
+    return activation
     
    
