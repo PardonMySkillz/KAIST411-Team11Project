@@ -35,7 +35,30 @@ float* leaky_relu(int batch_size, float* input, int channels, int height, int wi
 
 }
 
-float* batch_norm(){}
+float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_variable, float* weight, float* bias){
+
+    int size = batch_size * channels * height * width;
+    float* output = (float*)malloc(size * sizeof(float));
+
+    if(output == NULL) return NULL;
+
+    memset(output, 0 , size * sizeof(float));
+    float e = 1e-5;
+    for (int batch = 0; batch < batch_size; batch ++) {
+        for (int channel = 0; channel < channels; channel ++) {
+            for (int i = 0; i < width; i++) {
+                for (int j = 0; j < height; j++) {
+                    int index = batch * channels * width * height + channel * height * width + i * width + j;
+                    output[index] = weight[i] * ((input[index] - running_mean[i]) / (running_variable[i] + e)) + bias[i];
+                }
+                
+            }
+        }
+    }
+
+    return output;
+
+}
 
 float* conv2d(int batch_size, float* input, int input_channels, int input_height, int input_width,
               float* weight, int kernel_height, int kernel_width,
