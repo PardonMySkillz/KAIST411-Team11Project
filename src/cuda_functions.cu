@@ -95,11 +95,10 @@ __global__ void _batch_norm(float* input, float* output, int batch_size, int cha
     uint col = threadIdx.y;
 
     uint io_index = batch * channels * height * width + channel * height * width + row * width + col;
-    uint mv_index = batch * channels * width + channel * width + col;
 
     float e = 1e-5;
 
-    output[io_index] = weight[mv_index] * ((input[io_index] - running_mean[mv_index]) / (running_var[mv_index] + e)) + bias[mv_index];
+    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / (running_var[channel] + e)) + bias[channel];
 
 }
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){

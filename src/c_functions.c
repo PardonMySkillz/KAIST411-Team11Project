@@ -49,8 +49,7 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
             for (int i = 0; i < width; i++) {
                 for (int j = 0; j < height; j++) {
                     int io_index = batch * channels * width * height + channel * height * width + j * width + i;
-                    int mv_index = batch * channels * width  + channel * width + i;
-                    output[io_index] = weight[mv_index] * ((input[io_index] - running_mean[mv_index]) / (running_variable[mv_index] + e)) + bias[mv_index];
+                    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / (running_variable[channel] + e)) + bias[channel];
                 }
                 
             }
