@@ -79,6 +79,7 @@ def YOLOv2(activation, weight):
     activation = F.conv2d(activation, kernel, bias, 1)
     activation = F.batch_norm(activation, mean, var, gamma, beta)
     activation = F.leaky_relu(activation, 0.1)
+    activation = F.pad(activation, (0,1,0,1), 0)
     activation = F.max_pool2d(activation, 2, 1) # (512, 13, 13)
 
     #7
