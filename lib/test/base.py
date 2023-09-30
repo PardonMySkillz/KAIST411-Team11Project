@@ -36,7 +36,7 @@ def test_leaky_relu(runmode):
 
 
 def test_batch_norm(runmode):
-    n, c, h, w = 1, 3, 3, 3
+    n, c, h, w = 3, 3, 3, 3
     test_i = np_randn(n, c, h, w)
     test_rm = np_randn(c)
     test_rv = np_randn(c)
@@ -61,7 +61,7 @@ def test_batch_norm(runmode):
 
     
 def test_conv2d(runmode):
-    n = 1
+    n = 3
     ic, h, w = 3, 16, 16
     oc, kh, kw = 10, 3, 3
     s = 1
@@ -133,7 +133,7 @@ def test_conv2d_no_bias(runmode):
 
 
 def test_max_pool2d(runmode):
-    n, c, h, w = 1, 1, 6, 6
+    n, c, h, w = 3, 3, 6, 6
     k, s = 2, 2
     test_i = np_randn(n, c, h, w)
 
@@ -153,9 +153,9 @@ def test_max_pool2d(runmode):
 
 
 def test_pad(runmode):
-    n, c, h, w = 1, 1, 6, 6
+    n, c, h, w = 3, 3, 6, 6
     p = 1, 2, 3, 4 # 3 h 4 / 1 w 2
-    v = 1.
+    v = np.random.random_sample()
     test_i = np_randn(n, c, h, w)
 
     answer = answer_gen(pad, test_i, p, v, "pad_answer")
@@ -181,6 +181,7 @@ khws = [2**1, 2**3]
 ss = [2**0, 2**3]
 ps = [2**1, 2**5]
 
+
 class IndexGen:
     def __init__(self, num_select):
         self.curr = 0
@@ -200,11 +201,9 @@ class IndexGen:
             raise StopIteration
 
 def stress_conv2d(runmode):
-    set_run_mode(runmode)
-
     ig = IndexGen(6)
     for i in ig:
-        n = ns[i[0]] * (2 if runmode != RunMode.C else 1)
+        n = ns[i[0]]
         ic = cs[i[1]] * (2 if runmode != RunMode.C else 1)
         oc = cs[i[2]] * (2 if runmode != RunMode.C else 1)
         hw = hws[i[3]] * (2 if runmode != RunMode.C else 1)
@@ -214,17 +213,32 @@ def stress_conv2d(runmode):
         test_i = np_randn(n, ic, hw, hw)
         test_w = np_randn(oc, ic, khw, khw)
         test_b = np_randn(oc)
-        conv2d(test_i, test_w, test_b, s, f"stress_conv2d_n{n}ic{ic}oc{oc}hw{hw}khw{khw}")
+
+        test_name = f'stress_conv2d_n{n}ic{ic}oc{oc}hw{hw}khw{khw}'
+
+        answer = answer_gen(conv2d, test_i, test_w, test_b, s, f"{test_name}_answer")
+
+        set_run_mode(runmode)
+        output = conv2d(test_i, test_w, test_b, s, test_name)
+
+        if output is None:
+            print(f"{test_name} in {runmode} not implemented")
+        elif answer.shape != output.shape:
+            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        elif np.allclose(answer, output, atol=1e-2):
+            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        else:
+            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+
+        
 
 def stress_batch_norm(runmode):
-    set_run_mode(runmode)
-
     ig = IndexGen(3)
     for i in ig:
-        n = ns[i[0]] * (2 if runmode != RunMode.C else 1)
+        n = ns[i[0]]
         c = cs[i[1]] * (2 if runmode != RunMode.C else 1)
         hw = hws[i[2]] * (2 if runmode != RunMode.C else 1)
-        
+
         test_i = np_randn(n, c, hw, hw)
         test_rm = np_randn(c)
         test_rv = np_randn(c)
@@ -232,23 +246,48 @@ def stress_batch_norm(runmode):
         test_w = np_randn(c)
         test_b = np_randn(c)
 
-        batch_norm(test_i, test_rm, test_rv, test_w, test_b, f"stress_batch_norm_n{n}c{c}hw{hw}")
+        test_name = f'stress_batch_norm_n{n}c{c}hw{hw}'
+
+        answer = answer_gen(batch_norm, test_i, test_rm, test_rv, test_w, test_b, f"{test_name}_answer")
+
+        set_run_mode(runmode)
+        output = batch_norm(test_i, test_rm, test_rv, test_w, test_b, test_name)
+
+        if output is None:
+            print(f"{test_name} in {runmode} not implemented")
+        elif answer.shape != output.shape:
+            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        elif np.allclose(answer, output, atol=atol):
+            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        else:
+            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
 
 def stress_leaky_relu(runmode):
-    set_run_mode(runmode)
-
     ig = IndexGen(2)
     for i in ig:
         nc = ncs[i[0]] * (2 if runmode != RunMode.C else 1)
         hw = hws[i[1]] * (2 if runmode != RunMode.C else 1)
         test_grad = random.random()
         test_i = np_randn(nc, hw)
-        leaky_relu(test_i, test_grad, f"stress_leaky_relu_nc{nc}hw{hw}")
+
+        test_name = f'stress_leaky_relu_nc{nc}hw{hw}'
+
+        answer = answer_gen(leaky_relu, test_i, test_grad, f"{test_name}_answer")
+
+        set_run_mode(runmode)
+        output = leaky_relu(test_i, test_grad, test_name)
+
+        if output is None:
+            print(f"{test_name} in {runmode} not implemented")
+        elif answer.shape != output.shape:
+            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        elif np.allclose(answer, output, atol=atol):
+            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        else:
+            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def stress_maxpool_2d(runmode):
-    set_run_mode(runmode)
-
     ig = IndexGen(5)
     for i in ig:
         n = ns[i[0]] * (2 if runmode != RunMode.C else 1)
@@ -258,19 +297,47 @@ def stress_maxpool_2d(runmode):
         s = ss[i[4]] * (2 if runmode != RunMode.C else 1)
 
         test_i = np_randn(n, c, hw, hw)
-        max_pool2d(test_i, k, s, f"stress_max_pool2d_n{n}c{c}hw{hw}k{k}s{s}")
+
+        test_name = f"stress_max_pool2d_n{n}c{c}hw{hw}k{k}s{s}"
+
+        answer = answer_gen(max_pool2d, test_i, k, s, f"{test_name}_answer")
+
+        set_run_mode(runmode)
+        output = max_pool2d(test_i, k, s, test_name)
+
+        if output is None:
+            print(f"{test_name} in {runmode} not implemented")
+        elif answer.shape != output.shape:
+            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        elif np.allclose(answer, output, atol=atol):
+            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        else:
+            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
 
 def stress_pad(runmode):
-    set_run_mode(runmode)
-
     ig = IndexGen(4)
     for i in ig:
-        n = ns[i[0]] * (2 if runmode != RunMode.C else 1)
+        n = ns[i[0]]
         c = cs[i[1]] * (2 if runmode != RunMode.C else 1)
         hw = hws[i[2]] * (2 if runmode != RunMode.C else 1)
         p = ps[i[3]] * (2 if runmode != RunMode.C else 1)
 
-        v = 1.
+        v = np.random.random_sample()
+
         test_i = np_randn(n, c, hw, hw)
 
-        pad(test_i, (p, p, p, p), v, f"stress_pad_n{n}c{c}hw{hw}p{p}")
+        test_name = f"stress_pad_n{n}c{c}hw{hw}p{p}"
+
+        answer = answer_gen(pad, test_i, (p, p, p, p), v, f"{test_name}_answer")
+
+        set_run_mode(runmode)
+        output = pad(test_i, (p, p, p, p), v, test_name)
+
+        if output is None:
+            print(f"{test_name} in {runmode} not implemented")
+        elif answer.shape != output.shape:
+            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        elif np.allclose(answer, output, atol=atol):
+            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        else:
+            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
