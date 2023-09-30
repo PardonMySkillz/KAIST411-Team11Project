@@ -36,6 +36,7 @@ class MaxPool2d(Functional):
         activation_shape = activation['shape']
         activation_c = ctypes.cast(activation_ptr, ctypes.POINTER(ctypes.c_float))
 
+        print(activation_shape)
         N, ic, h, w = activation_shape
         kernel_width = kernel
         kernel_height = kernel

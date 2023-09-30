@@ -23,15 +23,18 @@ class LeakyReLU(Functional):
         return torch.nn.functional.leaky_relu(activation, negative_slope=negative_slope)
 
     def c(self, activation, negative_slope):
-        batch_size, channel, height, width = activation.shape[0], activation.shape[1], activation.shape[2], activation.shape[3]
-        input_array = np.ascontiguousarray(activation)
+        activation_ptr = activation['pointer']
+        activation_shape = activation['shape']
+        activation_c = cast(activation_ptr, POINTER(c_float))
+        height, width = activation_shape
+
         c_dll.leaky_relu.restype = POINTER(c_float)
-        output = c_dll.leaky_relu(batch_size, input_array.ctypes.data_as(POINTER(c_float)), c_int32(channel), c_int32(height), c_int32(width), c_int32(negative_slope))
-        arr_output = np.ctypeslib.as_array(output, (batch_size*channel*height*width, 1))
-        arr_copied = np.copy(arr_output)
-        c_dll.free(output)
-        return torch.from_numpy(arr_copied.reshape((batch_size,channel, height, width)))
-    
+
+        output_ptr = c_dll.leaky_relu(activation_c, c_int32(height), c_int32(width), c_float(negative_slope))
+
+        return output_ptr, (height, width)
+
+
     def cuda(self, activation, negative_slope):
         # TODO
         pass

@@ -8,9 +8,9 @@ void c_free(void *ptr){
 
 // TODOs
 // implement a simple C functions whose functionality complies with restricted PyTorch functions
-float* leaky_relu(int batch_size, float* input, int channels, int height, int width, int negative_slope){
+float* leaky_relu(float* input, int height, int width, float negative_slope){
     int input_size, output_size;
-    input_size = output_size = batch_size * channels * height * width;
+    input_size = output_size = height * width;
     float* output = (float*)malloc(output_size * sizeof(float));
 
     if(output == NULL) {
@@ -19,15 +19,11 @@ float* leaky_relu(int batch_size, float* input, int channels, int height, int wi
 
     memset(output, 0.0, sizeof(float) * output_size);
 
-    for (int b = 0; b < batch_size; b++) {
-        for (int c = 0; c < channels; c++) {
-            for (int h = 0; h < height; h++) {
-                for (int w = 0; w < width; w++) {
-                    int index = b * channels * height * width + c * height * width + h * width + w;
-                    float input_elem = input[index];
-                    output[index] = input_elem < 0 ? negative_slope * input_elem : input_elem;
-                }
-            }
+    for (int h = 0; h < height; h++) {
+        for (int w = 0; w < width; w++) {
+            int index = h * width + w;
+            float input_elem = input[index];
+            output[index] = input_elem < 0 ? negative_slope * input_elem : input_elem;
         }
     }
 
