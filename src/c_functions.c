@@ -31,7 +31,7 @@ float* leaky_relu(float* input, int height, int width, float negative_slope){
 
 }
 
-float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_variable, float* weight, float* bias){
+float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_variance, float* weight, float* bias){
 
     int size = batch_size * channels * height * width;
     float* output = (float*)malloc(size * sizeof(float));
@@ -45,7 +45,7 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
             for (int i = 0; i < width; i++) {
                 for (int j = 0; j < height; j++) {
                     int io_index = batch * channels * width * height + channel * height * width + j * width + i;
-                    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / (running_variable[channel] + e)) + bias[channel];
+                    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) /sqrt(running_variance[channel])) + bias[channel];
                 }
                 
             }

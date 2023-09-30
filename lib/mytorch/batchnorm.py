@@ -31,33 +31,21 @@ class BatchNorm2d(Functional):
         activation_ptr = activation['pointer']
         activation_shape = activation['shape']
         activation_c = cast(activation_ptr, POINTER(c_float))
-
-    
+        print(bias["shape"])  
         batch_size, channel, height, width = activation_shape
-        weight_array = np.ascontiguousarray(weight)
-        bias_array = np.ascontiguousarray(bias)
-        running_mean_array = np.ascontiguousarray(running_mean)
-        running_var_array = np.ascontiguousarray(running_var)
-
-        size = batch_size * channel * height * width
-
-        output_c = (c_float * size)()
+        weight_array = cast(weight['pointer'], POINTER(c_float))
+        bias_array = cast(bias['pointer'], POINTER(c_float))
+        running_mean_array = cast(running_mean['pointer'], POINTER(c_float))
+        running_var_array = cast(running_var['pointer'], POINTER(c_float))
 
         c_dll.batch_norm.restype = POINTER(c_float)
         output_ptr = c_dll.batch_norm(
             activation_c, c_int32(batch_size), c_int32(channel), c_int32(height), c_int32(width),
-            running_mean_array.ctypes.data_as(POINTER(c_float)), running_var_array.ctypes.data_as(POINTER(c_float)),
-            weight_array.ctypes.data_as(POINTER(c_float), bias_array.ctypes.data(POINTER(c_float)))
+            running_mean_array, running_var_array,
+            weight_array, bias_array
         )
-        
-        c_dll.free(output)
-        memmove(output_c, output_ptr, size * sizeof(c_float))
-        
-        output = {
-            'pointer': cast(output_c, c_void_p).value,
-            'shape': (batch_size, channel, height, width)
-        }
-        return output
+    
+        return output_ptr, activation_shape
     
     def cuda(self, activation, running_mean, running_var, weight, bias):
         batch_size, channel, height, width = activation.shape[0], activation.shape[1], activation.shape[2], activation.shape[3]
