@@ -6,9 +6,9 @@ import sys
 validations = [
     test_leaky_relu, 
     test_batch_norm, 
-    # test_conv2d, 
-    # test_conv2d_stride2, 
-    # test_conv2d_no_bias, 
+    test_conv2d, 
+    test_conv2d_stride2, 
+    test_conv2d_no_bias, 
     test_max_pool2d, 
     test_pad
     ]

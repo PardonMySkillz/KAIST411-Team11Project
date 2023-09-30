@@ -45,7 +45,7 @@ void block_cpu(){
 //   CUDA function
 //   Interface function that calls CUDA function
 // Note that interface function gets the float pointer already malloced at GPU
-__global__ void _leaky_relu(float* input, float* output, int height, int width, int negative_slope){
+__global__ void _leaky_relu(float* input, float* output, int height, int width, float negative_slope){
 
     uint row = threadIdx.x;
     uint col = threadIdx.y;
@@ -59,7 +59,7 @@ __global__ void _leaky_relu(float* input, float* output, int height, int width, 
     }
 
 }
-float* leaky_relu(float* input, int height, int width, int negative_slope){
+float* leaky_relu(float* input, int height, int width, float negative_slope){
 
     float *device_input, *device_output;
     unsigned long size =  height * width;
@@ -70,10 +70,11 @@ float* leaky_relu(float* input, int height, int width, int negative_slope){
     cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(device_output, 0, size * sizeof(float));
 
-    dim3 numBlocks(16, 16);
     dim3 threadsPerBlock(height, width);
 
-    _leaky_relu<<<numBlocks, threadsPerBlock>>>(device_input, device_output, height, width, negative_slope);
+    _leaky_relu<<<1, threadsPerBlock>>>(device_input, device_output, height, width, negative_slope);
+
+    cudaDeviceSynchronize();
 
     cuda_free(device_input);
 
@@ -92,10 +93,7 @@ __global__ void _batch_norm(float* input, float* output, int batch_size, int cha
     uint io_index = batch * channels * height * width + channel * height * width + row * width + col;
 
     float e = 1e-5;
-    // printf("channel %d, io_index %d\n", channel, io_index);
-    // printf("input %f weight %f bias %f rm %f rv %f \n", input[io_index], weight[channel], bias[channel], running_mean[channel], running_var[channel]);
     output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / sqrt(running_var[channel] + e)) + bias[channel];
-    // printf("ouput %f\n", output[io_index]);
 
 }
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
