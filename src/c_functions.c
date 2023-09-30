@@ -33,6 +33,7 @@ float* leaky_relu(float* input, int height, int width, float negative_slope){
 
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_variance, float* weight, float* bias){
 
+
     int size = batch_size * channels * height * width;
     float* output = (float*)malloc(size * sizeof(float));
 
@@ -42,12 +43,9 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
     float e = 1e-5;
     for (int batch = 0; batch < batch_size; batch ++) {
         for (int channel = 0; channel < channels; channel ++) {
-            for (int i = 0; i < width; i++) {
-                for (int j = 0; j < height; j++) {
-                    int io_index = batch * channels * width * height + channel * height * width + j * width + i;
-                    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) /sqrt(running_variance[channel])) + bias[channel];
-                }
-                
+            for (int i = 0; i < width * height; i++) {
+                    int io_index = batch * channels * width * height + channel * height * width + i;
+                    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) /(sqrt(running_variance[channel] + e))) + bias[channel];
             }
         }
     }
@@ -130,4 +128,36 @@ void* max_pool2d(float* input, int input_height, int input_width, int kernel_wid
     return output;
 }
 
-float* pad(){}
+float* pad(float* input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding) {
+    int new_height = height+top+bottom;
+    int new_width = width + left + right;
+    float* output = (float*) malloc (sizeof(float) * batch_size * channels * new_height * new_width);
+    
+    float* ptri = input_ptr;
+    float* ptro = output;
+    for (int b = 0; b < batch_size; b++)
+        for (int c = 0; c < channels; c++) {
+            // Pad the top
+            for (int i = 0; i < top * new_width; i++, ptro++)
+                *ptro = padding;
+
+            // Pad the middle
+            for (int i = 0; i < height; i++) {
+                // Left
+                for (int j = 0; j < left; j++, ptro++)
+                    *ptro = padding;
+                // 
+                for (int j = 0; j < height; j++, ptri++, ptro++)
+                    *ptro = *ptri; 
+                // Right
+                for (int j = 0; j < right; j++, ptro++)
+                    *ptro = padding;
+            }
+
+            // Pad the end
+            for (int i = 0; i < bottom * new_width; i++, ptro++)
+                *ptro = padding;
+        }
+
+    return output;
+}
