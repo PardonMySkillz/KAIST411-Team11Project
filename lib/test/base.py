@@ -21,10 +21,8 @@ def test_leaky_relu(runmode):
     test_grad = random.random()
     answer = answer_gen(leaky_relu, test_i, test_grad, "leaky_relu_answer")
 
-    print("answer :", answer)
     set_run_mode(runmode)
     output = leaky_relu(test_i, test_grad, "leaky_relu_test")
-    print("output :", output)
     if output is None:
         print(f"leaky_relu in {runmode} not implemented")
     elif answer.shape != output.shape:

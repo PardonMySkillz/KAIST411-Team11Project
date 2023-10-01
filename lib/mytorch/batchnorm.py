@@ -31,7 +31,6 @@ class BatchNorm2d(Functional):
         activation_ptr = activation['pointer']
         activation_shape = activation['shape']
         activation_c = cast(activation_ptr, POINTER(c_float))
-        print(bias["shape"])  
         batch_size, channel, height, width = activation_shape
         weight_array = cast(weight['pointer'], POINTER(c_float))
         bias_array = cast(bias['pointer'], POINTER(c_float))
@@ -51,7 +50,6 @@ class BatchNorm2d(Functional):
         activation_ptr = activation['pointer']
         activation_shape = activation['shape']
         activation_c = cast(activation_ptr, POINTER(c_float))
-        print(bias["shape"])  
         batch_size, channel, height, width = activation_shape
         weight_array = cast(weight['pointer'], POINTER(c_float))
         bias_array = cast(bias['pointer'], POINTER(c_float))
@@ -67,5 +65,19 @@ class BatchNorm2d(Functional):
         return output_ptr, activation_shape
     
     def cuda_optimized(self, activation, running_mean, running_var, weight, bias):
-        # TODO
-        pass
+        activation_ptr = activation['pointer']
+        activation_shape = activation['shape']
+        activation_c = cast(activation_ptr, POINTER(c_float))
+        batch_size, channel, height, width = activation_shape
+        weight_array = cast(weight['pointer'], POINTER(c_float))
+        bias_array = cast(bias['pointer'], POINTER(c_float))
+        running_mean_array = cast(running_mean['pointer'], POINTER(c_float))
+        running_var_array = cast(running_var['pointer'], POINTER(c_float))
+        cu_dll.batch_norm.restype = POINTER(c_float)
+        output_ptr = cu_dll.batch_norm(
+            activation_c, c_int32(batch_size), c_int32(channel), c_int32(height), c_int32(width),
+            running_mean_array, running_var_array,
+            weight_array, bias_array
+        )
+    
+        return output_ptr, activation_shape
