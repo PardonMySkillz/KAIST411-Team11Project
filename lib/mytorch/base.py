@@ -18,7 +18,9 @@ cu_dll.max_pool2d.restype = POINTER(c_float)
 cu_dll.pad.restype = POINTER(c_float)
 
 cuo_dll = cdll.LoadLibrary('./build/lib_cuda_functions_optimized.so')
-
+# I have no idea why these lines exist and commented, they were in Kim's branch as comments and nothing in mine, I'm just adding them, maybe they are usefull idk - Aziz (image of the situation https://i.imgur.com/piXPcuN.png)
+# cuo_dll.np2cuda.restype = POINTER(c_float)
+# cuo_dll.cuda2np.restype = POINTER(c_float)
 cuo_dll.leaky_relu.restype = POINTER(c_float)
 cuo_dll.conv2d.restype = POINTER(c_float)
 cuo_dll.batch_norm.restype = POINTER(c_float)
