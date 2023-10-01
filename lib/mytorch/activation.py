@@ -41,8 +41,6 @@ class LeakyReLU(Functional):
         activation_c = cast(activation_ptr, POINTER(c_float))
         height, width = activation_shape
 
-        print("negav slope", negative_slope)
-
         cu_dll.leaky_relu.restype = POINTER(c_float)
 
         output_ptr = cu_dll.leaky_relu(activation_c, c_int32(height), c_int32(width), c_float(negative_slope))
@@ -51,5 +49,13 @@ class LeakyReLU(Functional):
 
 
     def cuda_optimized(self, activation, negative_slope):
-        # TODO
-        pass
+        activation_ptr = activation['pointer']
+        activation_shape = activation['shape']
+        activation_c = cast(activation_ptr, POINTER(c_float))
+        height, width = activation_shape
+
+        cu_dll.leaky_relu.restype = POINTER(c_float)
+
+        output_ptr = cu_dll.leaky_relu(activation_c, c_int32(height), c_int32(width), c_float(negative_slope))
+
+        return output_ptr, activation_shape

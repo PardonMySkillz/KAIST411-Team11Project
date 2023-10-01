@@ -18,7 +18,14 @@ performance = {
     "stress_batch_norm": stress_batch_norm, 
     "stress_conv2d": stress_conv2d, 
     "stress_maxpool_2d": stress_maxpool_2d, 
-    "stress_pad": stress_pad
+    "stress_pad": stress_pad,
+    "test_leaky_relu": test_leaky_relu, 
+    "test_batch_norm": test_batch_norm, 
+    "test_conv2d": test_conv2d, 
+    "test_conv2d_stride2": test_conv2d_stride2, 
+    "test_conv2d_no_bias": test_conv2d_no_bias, 
+    "test_max_pool2d": test_max_pool2d, 
+    "test_pad": test_pad
 }
 
 if __name__ == "__main__":
