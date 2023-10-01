@@ -45,7 +45,16 @@ class Conv2d(Functional):
 
     def cuda(self, activation, weight, bias, stride):
         # TODO
-        pass
+        activation_pointer = activation["pointer"]
+        weight_pointer = weight["pointer"]
+        bias_pointer = bias["pointer"] if bias is not None else None
+        batch_size, input_channel, input_height, input_width = activation["shape"][0], activation["shape"][1], activation["shape"][2], activation["shape"][3]
+        output_channel, kernel_height, kernel_width = weight["shape"][0], weight["shape"][2], weight["shape"][3]
+        output_height, output_width = (input_height - kernel_height) // stride + 1, (input_width - kernel_width) // stride + 1
+        output = cu_dll.conv2d(c_int32(batch_size), activation_pointer, c_int32(input_channel), c_int32(input_height), c_int32(input_width),
+                 weight_pointer, bias_pointer, c_int32(kernel_height), c_int32(kernel_width), 
+                 c_int32(output_channel), c_int32(output_height), c_int32(output_width), c_int32(stride))
+        return (output, (batch_size,output_channel,output_height,output_width))
     
     def cuda_optimized(self, activation, weight, bias, stride):
         # TODO
