@@ -231,30 +231,22 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
 
 
 __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width) {
-    //Most intuitive: <<<batch_size, inputChannel>>
-    int b = blockIdx.x;
-    int c = threadIdx.x;
-    printf("b: %d, c: %d\n", b, c);
-    for (int h = 0; h < output_height; h++) {
-        for (int w = 0; w < output_width; w++) {
-            int i_h_start = h * stride;
-            int i_w_start = w * stride;
-            float result = 0.0;
-            for (int kernel_h = 0; kernel_h < kernel_height; kernel_h++) {
-                for (int kernel_w = 0; kernel_w < kernel_width; kernel_w++) {
-                    for (int in_c = 0; in_c < input_channel; in_c++) {
-                        int i_h = i_h_start + kernel_h;
-                        int i_w = i_w_start + kernel_w;
-                        if (i_h >= 0 && i_h < input_height && i_w >= 0 && i_w < input_width) {
-                            int input_index = b * input_channel * input_height * input_width + in_c * input_height * input_width + i_h * input_width + i_w;
-                            if (input[input_index] > result) {
-                                result = input[input_index];
-                            }
-                        }
+    int batch = blockIdx.x;
+    int channel = threadIdx.x;
+    for (int row = 0; row < output_height; row++) {
+        for (int col = 0; col < output_width; col++) {
+            int start_row = row * stride;
+            int start_col = col * stride;
+            float max_value = input[batch * input_channel * input_height * input_width + channel * input_height *input_width + start_row * input_width + start_col];
+            for (int i =0; i < kernel_height; i++) {
+                for (int j = 0; j < kernel_width; j++) {
+                    float curr_value = input[batch * input_channel * input_height * input_width + channel * input_height *input_width + (start_row + i) * input_width + start_col + j];
+                    if (curr_value > max_value) {
+                        max_value = curr_value;
                     }
                 }
             }
-            output[b*input_channel*output_height*output_width + c*output_height*output_width + h*output_width + w] = result;
+            output[batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col] = max_value;
         }
     }
 }
@@ -262,8 +254,8 @@ __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
     float* d_input, *d_output;
 
-    int output_height = CEIL_DIV(input_height - kernel_height + 1, stride);
-    int output_width = CEIL_DIV(input_width - kernel_width + 1, stride);
+    int output_height = floor((input_height - kernel_height) / stride) + 1;
+    int output_width = floor((input_width - kernel_width) / stride) + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
     cudaMalloc((void**)&d_input, input_channel * input_height * input_width * batch_size * sizeof(float));
@@ -271,8 +263,7 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
 
     cudaMemcpy(d_input, input, input_channel * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
 
-    dim3 grid(batch_size, input_channel);
-    dim3 block(output_height, output_width);
+
 
     _max_pool2d<<<batch_size, input_channel>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
 

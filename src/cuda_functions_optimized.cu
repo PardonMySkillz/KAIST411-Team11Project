@@ -165,29 +165,25 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
     return output;
 }
 
-__global__ void _pad_fill(float *arr, int size, float value, int bcs, int height, int width, int new_height, int new_width, int top, int left)
-{
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int bc = idx % bcs;
-    int y = (bc / new_width) - top;
-    int x = (bc % new_width) - left;
-    if (x < 0 || width <= x || y < 0 || height <= y)
-        arr[idx] = value;
-}
-
-__global__ void _pad(float *input, float *output, int height, int width, int left, int right, int top, int bottom)
+__global__ void _pad(float *input, float *output, int size, int height, int width, int left, int right, int top, int bottom, int sz2d, float padding)
 {
     int new_height = height + top + bottom;
     int new_width = width + left + right;
 
-    int x = threadIdx.x + blockDim.x * blockIdx.x;
-    int y = blockIdx.y;
-    int bc = blockIdx.z;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if(idx >= size) return;
+    int bc = idx / sz2d;
+    int off = idx % sz2d;
+    int y = (off / new_width) - top;
+    int x = (off % new_width) - left;
+
     float *bci = input + bc * height * width;
     float *bco = output + bc * new_height * new_width + new_width * top + left;
-    if(x < width) {
-        bco[new_width * y + x] = bci[width * y + x];
-    }
+
+    if (x < 0 || width <= x || y < 0 || height <= y)
+        output[idx] = padding;
+    else
+        output[idx] = bci[width * y + x];
 }
 
 float *pad(float *input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding)
@@ -210,12 +206,8 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
     // Fill array with padding
     int block_size = 1024;
     int num_blocks = CEIL_DIV(output_size, block_size);
-    _pad_fill<<<num_blocks, block_size>>>(d_output, output_size, padding, batchannels, height, width, new_height, new_width, top, left);
-
-    // Copy the rest
-    int ewidth = min(block_size, width); // Effective width
-    dim3 padGrid(CEIL_DIV(width, ewidth), height, batchannels);
-    _pad<<<padGrid, ewidth>>>(d_input, d_output, height, width, left, right, top, bottom);
+    
+    _pad<<<num_blocks, block_size>>>(d_input, d_output, output_size, height, width, left, right, top, bottom, new_height * new_width, padding);
 
     cudaDeviceSynchronize();
 
