@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <cuda_profiler_api.h>
 
 #define CEIL_DIV(X, Y) (((X)+(Y)-1)/(Y))
 
@@ -150,7 +151,44 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
     return output;
 }
 
-__global__ void _pad(){}
-float* pad(){}
+__global__ void _pad_fill(float *arr, int size, float value)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+    for (int i = idx; i < size; i += gridDim.x * blockDim.x)
+        arr[i] = value;
+}
+
+float *pad(float *input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding)
+{
+    float *d_output;
+    int new_height = height + top + bottom;
+    int new_width = width + left + right;
+
+    int output_size = batch_size * channels * new_height * new_width;
+
+    printf("Allocating %d bytes...\n", output_size);
+    cudaProfilerStart();
+    cudaMalloc((void **)&d_output, sizeof(float) * output_size);
+
+    int blockSize = 256;
+    int numBlocks = (output_size + blockSize - 1) / blockSize;
+    _pad_fill<<<numBlocks, blockSize>>>(d_output, output_size, padding);
+    cudaDeviceSynchronize();
+
+    for (int b = 0; b < batch_size; b++)
+        for (int c = 0; c < channels; c++)
+        {
+            int old_offset = b * channels * height * width + c * height * width;
+            int new_offset = b * channels * new_height * new_width + c * new_height * new_width + top * new_width;
+            for (int i = 0; i < height; i++)
+                cudaMemcpyAsync(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, width * sizeof(float), cudaMemcpyHostToDevice);
+        }
+
+    cudaDeviceSynchronize();
+
+    cudaProfilerStop();
+
+    return d_output;
+}
 }

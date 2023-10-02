@@ -230,47 +230,129 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
 }
 
 
-__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output) {
+__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width) {
+    //define the parallell process: batch as one block, channel as one thread
+    int batch = blockIdx.x;
+    // int output_height = ((input_height - kernel_height) / stride) + 1;
+    // int output_width = ((input_width - kernel_width) / stride) + 1;
+    int output_size = output_height * output_width * input_channel * batch_size;
 
+    int out_c = threadIdx.x;
+
+    //commence the max pooling
+    for (int out_h = 0; out_h < output_height; out_h++) {
+        for (int out_w = 0; out_w < output_width; out_w++) {
+            //find the max value in the kernel
+            int i_h_start = out_h * stride;
+            int i_w_start = out_w * stride;
+            float max_val = 0.0;
+            //capture the max value in kernel
+            for (int i = 0; i < kernel_height; i++) {
+                for (int j = 0; j < kernel_width; j++) {
+                    float curr_value = input[batch * input_channel * input_height * input_width + out_c * input_height * input_width + (i_h_start + i) * input_width + (i_w_start + j)];
+                    if (curr_value > max_val) {
+                        max_val = curr_value;
+                    }
+                }
+            }
+            //assign the max value to the output
+            output[batch * input_channel * output_height * output_width + out_c * output_height * output_width + out_h * output_width + out_w] = max_val;
+            
+        }
+    } 
 }
 
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
+    // float* output, *device_output, *device_input;
+    // int input_size = batch_size * input_channel * input_height * input_width;
+    
+    // int output_height = (input_height - kernel_height) / stride + 1;
+    // int output_width = (input_width - kernel_width) / stride + 1;
+    // int output_size = batch_size * input_channel * output_height * output_width;
+
+    // cudaMalloc((void **)&device_input, input_size * sizeof(float));
+    // cudaMalloc((void**)&device_output, output_size * sizeof(float));
+
+    // cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
+    // cudaMemset(device_output, 0, output_size*sizeof(float));
+
+    // dim3 threadsPerBlock(16, 16);
+    // dim3 numBlocks((output_width + threadsPerBlock.x - 1) / threadsPerBlock.x, (output_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+
+    // _max_pool2d<<<numBlocks, threadsPerBlock>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output);
+    // cudaDeviceSynchronize();
+    // cudaFree(device_input);
+
+    // return device_output;
+    float* output, *device_output, *device_input;
+    int input_size = batch_size * input_channel * input_height * input_width;
+
+    int output_height = floor((input_height - kernel_height) / stride) + 1;
+    int output_width = floor((input_width - kernel_width) / stride) + 1;
+    int output_size = output_height * output_width * input_channel * batch_size;
+
+    cudaMalloc((void **)&device_input, input_size * sizeof(float));
+    cudaMalloc((void**)&device_output, input_size * sizeof(float));
+
+    cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
+    cudaMemset(device_output, 0, input_size*sizeof(float));
+    dim3 grid(batch_size, input_channel);
+    dim3 block(CEIL_DIV(input_height, stride), CEIL_DIV(input_width, stride));
+
+    //launch the kernel
+    _max_pool2d<<<grid, block>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_height, output_width);
+
+    //allocate memory for the output on the host
+    output = (float*)malloc(output_size * sizeof(float));
+    if (output == NULL) {
+        // Handle memory allocation error
+        return NULL;
+    }
+    //copy the result from device to host
+    cudaMemcpy(output, device_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
+
+    //free device memory
+    cudaFree(device_input);
+    cudaFree(device_output);
+
+    return output;
+
+
 
 }
 
 // Unused
 __global__ void _pad(float *input, float* output, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding) {
-    // Unused
-    // int new_height = height + top + bottom;
-    // int new_width = width + left + right;
+    int new_height = height + top + bottom;
+    int new_width = width + left + right;
 
-    // float *ptri = input;
-    // float *ptro = output;
-    // for (int b = 0; b < batch_size; b++)
-    //     for (int c = 0; c < channels; c++)
-    //     {
-    //         // Pad the top
-    //         for (int i = 0; i < top * new_width; i++)
-    //             ptro[i] = padding;
+    float *ptri = input;
+    float *ptro = output;
+    for (int b = 0; b < batch_size; b++)
+        for (int c = 0; c < channels; c++)
+        {
+            // Pad the top
+            for (int i = 0; i < top * new_width; i++)
+                ptro[i] = padding;
 
-    //         // Pad the middle
-    //         for (int i = 0; i < height; i++)
-    //         {
-    //             // Left
-    //             for (int j = 0; j < left; j++, ptro++)
-    //                 *ptro = padding;
-    //             //
-    //             for (int j = 0; j < height; j++, ptri++, ptro++)
-    //                 *ptro = *ptri;
-    //             // Right
-    //             for (int j = 0; j < right; j++, ptro++)
-    //                 *ptro = padding;
-    //         }
+            // Pad the middle
+            for (int i = 0; i < height; i++)
+            {
+                // Left
+                for (int j = 0; j < left; j++, ptro++)
+                    *ptro = padding;
+                //
+                for (int j = 0; j < height; j++, ptri++, ptro++)
+                    *ptro = *ptri;
+                // Right
+                for (int j = 0; j < right; j++, ptro++)
+                    *ptro = padding;
+            }
 
-    //         // Pad the end
-    //         for (int i = 0; i < bottom * new_width; i++, ptro++)
-    //             *ptro = padding;
-    //     }
+            // Pad the end
+            for (int i = 0; i < bottom * new_width; i++, ptro++)
+                *ptro = padding;
+        }
 }
 
 __global__ void _pad_fill(float* arr, int size, float value) {
@@ -288,10 +370,12 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
 
     int input_size = batch_size * channels * height * width;
     int output_size =  batch_size * channels * new_height * new_width;
-    
+    // cudaMalloc((void **)&d_input, input_size);
     cudaMalloc((void **)&d_output, sizeof(float) * output_size);
-    
-    // fill the array with padding then copy the initial matrix
+
+    // cudaMemcpy(d_input, input_ptr, input_size, cudaMemcpyHostToDevice);
+    // cudaMemset(d_output, 0, output_size);
+
     int blockSize = 256;
     int numBlocks = (output_size + blockSize - 1) / blockSize;
     _pad_fill<<<numBlocks, blockSize>>>(d_output, output_size, padding);
@@ -309,11 +393,12 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
                 + c * new_height * new_width
                 + top * new_width;
             for(int i = 0; i < height; i++)
-                cudaMemcpyAsync(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, width * sizeof(float), cudaMemcpyHostToDevice);
+                cudaMemcpy(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, input_size, cudaMemcpyHostToDevice);
         }
 
-    cudaDeviceSynchronize();
+    // _pad<<<1,1>>>(d_input, d_output, batch_size, channels, height, width, left, right, top, bottom, padding);
 
+    cudaDeviceSynchronize();
 
     return d_output;
 }

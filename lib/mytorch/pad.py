@@ -58,5 +58,17 @@ class Pad(Functional):
         return output_ptr, (batch_size, channel, height+top+bottom, width+left+right)
     
     def cuda_optimized(self, activation, pad, value):
-        # TODO
+        input_ptr = cast(activation['pointer'], POINTER(c_float))
+        batch_size, channel, height, width = map( lambda x: c_int32(x), activation['shape'] )
+        left, right, top, bottom = map( lambda x: c_int32(x), pad )
+        cu_dll.batch_norm.restype = POINTER(c_float)
+        output_ptr = cuo_dll.pad(
+            input_ptr, batch_size, channel, height, width,
+            left, right, top, bottom,
+            c_float(value)
+        )
+
+        batch_size, channel, height, width = activation['shape']
+        left, right, top, bottom = pad
+        return output_ptr, (batch_size, channel, height+top+bottom, width+left+right)
         pass
