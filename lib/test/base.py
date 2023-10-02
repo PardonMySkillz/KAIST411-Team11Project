@@ -6,6 +6,14 @@ from ..util import RunMode, set_run_mode
 
 atol = 1e-5
 
+# Colorfull text for better accesibilty
+NORMAL = "\033[0m"
+BOLD_GREEN = "\033[0;32;1m"
+BOLD_RED = "\033[0;31;1m"
+
+PASSED = f"{BOLD_GREEN}passed{NORMAL}"
+FAILED = f"{BOLD_RED}failed{NORMAL}"
+
 def np_randn(*args):
     res = np.random.randn(*args)
     return res.astype(np.float32)
@@ -26,11 +34,11 @@ def test_leaky_relu(runmode):
     if output is None:
         print(f"leaky_relu in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"leaky_relu in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"leaky_relu in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
-        print(f"leaky_relu in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"leaky_relu in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"leaky_relu in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"leaky_relu in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def test_batch_norm(runmode):
@@ -50,12 +58,12 @@ def test_batch_norm(runmode):
     if output is None:
         print(f"batch_norm in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"batch_norm in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"batch_norm in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
         print(
-            f"batch_norm in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            f"batch_norm in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"batch_norm in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"batch_norm in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
     
 def test_conv2d(runmode):
@@ -75,12 +83,12 @@ def test_conv2d(runmode):
     if output is None:
         print(f"conv2d in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"conv2d in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"conv2d in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
         print(
-            f"conv2d in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            f"conv2d in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"conv2d in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"conv2d in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def test_conv2d_stride2(runmode):
@@ -100,11 +108,11 @@ def test_conv2d_stride2(runmode):
     if output is None:
         print(f"conv2d with stride 2 in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"conv2d with stride 2 in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"conv2d with stride 2 in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
-        print(f"conv2d with stride 2 in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"conv2d with stride 2 in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"conv2d with stride 2 in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"conv2d with stride 2 in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def test_conv2d_no_bias(runmode):
@@ -123,11 +131,11 @@ def test_conv2d_no_bias(runmode):
     if output is None:
         print(f"conv2d without bias in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"conv2d without bias in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"conv2d without bias in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
-        print(f"conv2d without bias in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"conv2d without bias in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"conv2d without bias in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"conv2d without bias in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def test_max_pool2d(runmode):
@@ -143,11 +151,11 @@ def test_max_pool2d(runmode):
     if output is None:
         print(f"max_pool2d in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"max_pool2d in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"max_pool2d in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
-        print(f"max_pool2d in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"max_pool2d in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"max_pool2d in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"max_pool2d in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def test_pad(runmode):
@@ -164,11 +172,11 @@ def test_pad(runmode):
     if output is None:
         print(f"pad in {runmode} not implemented")
     elif answer.shape != output.shape:
-        print(f"pad in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+        print(f"pad in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
     elif np.allclose(answer, output, atol=atol):
-        print(f"pad in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"pad in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
     else:
-        print(f"pad in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+        print(f"pad in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 ns = [2**0, 2**4]
@@ -222,11 +230,11 @@ def stress_conv2d(runmode):
         if output is None:
             print(f"{test_name} in {runmode} not implemented")
         elif answer.shape != output.shape:
-            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
         elif np.allclose(answer, output, atol=1e-2):
-            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
         else:
-            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
         
 
@@ -254,11 +262,11 @@ def stress_batch_norm(runmode):
         if output is None:
             print(f"{test_name} in {runmode} not implemented")
         elif answer.shape != output.shape:
-            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
         elif np.allclose(answer, output, atol=atol):
-            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
         else:
-            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 def stress_leaky_relu(runmode):
     ig = IndexGen(2)
@@ -278,11 +286,11 @@ def stress_leaky_relu(runmode):
         if output is None:
             print(f"{test_name} in {runmode} not implemented")
         elif answer.shape != output.shape:
-            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
         elif np.allclose(answer, output, atol=atol):
-            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
         else:
-            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 
 def stress_maxpool_2d(runmode):
@@ -306,11 +314,11 @@ def stress_maxpool_2d(runmode):
         if output is None:
             print(f"{test_name} in {runmode} not implemented")
         elif answer.shape != output.shape:
-            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
         elif np.allclose(answer, output, atol=atol):
-            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
         else:
-            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")
 
 def stress_pad(runmode):
     ig = IndexGen(4)
@@ -334,8 +342,8 @@ def stress_pad(runmode):
         if output is None:
             print(f"{test_name} in {runmode} not implemented")
         elif answer.shape != output.shape:
-            print(f"{test_name} in {runmode} test failed.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n output shape does not match answer shape. {answer.shape} != {output.shape}")
         elif np.allclose(answer, output, atol=atol):
-            print(f"{test_name} in {runmode} test passed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {PASSED}.\n l2 error:{np.linalg.norm(answer-output)}")
         else:
-            print(f"{test_name} in {runmode} test failed.\n l2 error:{np.linalg.norm(answer-output)}")
+            print(f"{test_name} in {runmode} test {FAILED}.\n l2 error:{np.linalg.norm(answer-output)}")

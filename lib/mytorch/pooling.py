@@ -47,16 +47,16 @@ class MaxPool2d(Functional):
         output_size = output_height*output_width
 
         
-        c_dll.max_pool2d.restype = ctypes.POINTER(ctypes.c_float)
-        c_dll.max_pool2d.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int)
+        # c_dll.max_pool2d.restype = ctypes.POINTER(ctypes.c_float)
+        # c_dll.max_pool2d.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int)
 
         output_ptr = c_dll.max_pool2d (
             activation_c,
-            input_height,
-            input_width,
-            kernel_width,
-            kernel_height,
-            stride
+            ctypes.c_int32(input_height),
+            ctypes.c_int32(input_width),
+            ctypes.c_int32(kernel_width),
+            ctypes.c_int32(kernel_height),
+            ctypes.c_int32(stride)
         )
         output = []
         output_shape = (N, ic, output_height, output_width)

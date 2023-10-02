@@ -28,9 +28,6 @@ class Pad(Functional):
         return torch.nn.functional.pad(activation, pad, value=value)
 
     def c(self, activation, pad, value):
-        print(activation)
-        print(pad)
-        print(value)
         input_ptr = cast(activation['pointer'], POINTER(c_float))
         batch_size, channel, height, width = map( lambda x: c_int32(x), activation['shape'] )
         left, right, top, bottom = map( lambda x: c_int32(x), pad )
@@ -46,9 +43,6 @@ class Pad(Functional):
         return output_ptr, (batch_size, channel, height+top+bottom, width+left+right)
 
     def cuda(self, activation, pad, value):
-        print(activation)
-        print(pad)
-        print(value)
         input_ptr = cast(activation['pointer'], POINTER(c_float))
         batch_size, channel, height, width = map( lambda x: c_int32(x), activation['shape'] )
         left, right, top, bottom = map( lambda x: c_int32(x), pad )
