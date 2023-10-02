@@ -308,14 +308,14 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
         // Handle memory allocation error
         return NULL;
     }
-    //copy the result from device to host
-    cudaMemcpy(output, device_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
+    // This is not required, you have to return the device_output --copy the result from device to host--
+    //cudaMemcpy(output, device_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
 
     //free device memory
     cudaFree(device_input);
-    cudaFree(device_output);
+    //cudaFree(device_output);
 
-    return output;
+    return device_output;
 
 
 
