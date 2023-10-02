@@ -284,7 +284,7 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
 
 // Unused
 __global__ void _pad(float *input, float* output, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding) {
-    int new_height = height + top + bottom;
+    // int new_height = height + top + bottom;
     int new_width = width + left + right;
 
     float *ptri = input;
@@ -325,17 +325,14 @@ __global__ void _pad_fill(float* arr, int size, float value) {
 
 float *pad(float *input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding)
 {
-    float *d_input, *d_output;
+    float *d_output;
     int new_height = height + top + bottom;
     int new_width = width + left + right;
 
-    int input_size = batch_size * channels * height * width;
+    // int input_size = batch_size * channels * height * width;
     int output_size =  batch_size * channels * new_height * new_width;
-    // cudaMalloc((void **)&d_input, input_size);
-    cudaMalloc((void **)&d_output, sizeof(float) * output_size);
 
-    // cudaMemcpy(d_input, input_ptr, input_size, cudaMemcpyHostToDevice);
-    // cudaMemset(d_output, 0, output_size);
+    cudaMalloc((void **)&d_output, sizeof(float) * output_size);
 
     int blockSize = 256;
     int numBlocks = (output_size + blockSize - 1) / blockSize;
@@ -354,10 +351,8 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
                 + c * new_height * new_width
                 + top * new_width;
             for(int i = 0; i < height; i++)
-                cudaMemcpy(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, input_size, cudaMemcpyHostToDevice);
+                cudaMemcpyAsync(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, width * sizeof(float), cudaMemcpyDeviceToDevice);
         }
-
-    // _pad<<<1,1>>>(d_input, d_output, batch_size, channels, height, width, left, right, top, bottom, padding);
 
     cudaDeviceSynchronize();
 

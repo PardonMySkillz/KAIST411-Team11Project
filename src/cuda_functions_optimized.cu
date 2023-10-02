@@ -196,37 +196,28 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
     int new_height = height + top + bottom;
     int new_width = width + left + right;
 
-    int input_size = batch_size * channels * height * width;
+    // int input_size = batch_size * channels * height * width;
     int output_size = batch_size * channels * new_height * new_width;
 
     int batchannels = batch_size * channels;
 
-    cudaStream_t copy_stream, fill_stream;
-    cudaStreamCreate(&copy_stream);
-    cudaStreamCreate(&fill_stream);
+#ifdef DEBUG
+    printf("Allocating %f MB...\n", (float)(output_size) / 1e6 * sizeof(float));
+#endif
 
-    printf("Allocating %f MB...\n", (float)(input_size + output_size) / 1e6 * sizeof(float));
-    
-    // cudaMalloc((void **)&d_input, sizeof(float) * input_size);
-    // cudaMemcpyAsync(d_input, input_ptr, input_size * sizeof(float), cudaMemcpyHostToDevice, copy_stream);
-    
     cudaMalloc((void **)&d_output, sizeof(float) * output_size);
 
     // Fill array with padding
     int block_size = 1024;
     int num_blocks = CEIL_DIV(output_size, block_size);
-    _pad_fill<<<num_blocks, block_size, 0, fill_stream>>>(d_output, output_size, padding, batchannels, height, width, new_height, new_width, top, left);
+    _pad_fill<<<num_blocks, block_size>>>(d_output, output_size, padding, batchannels, height, width, new_height, new_width, top, left);
 
-    // Fill the rest
+    // Copy the rest
     int ewidth = min(block_size, width); // Effective width
     dim3 padGrid(CEIL_DIV(width, ewidth), height, batchannels);
-    _pad<<<padGrid, ewidth, 0, copy_stream>>>(d_input, d_output, height, width, left, right, top, bottom);
+    _pad<<<padGrid, ewidth>>>(d_input, d_output, height, width, left, right, top, bottom);
 
     cudaDeviceSynchronize();
-
-    cudaFree(d_input);
-    cudaStreamDestroy(copy_stream);
-    cudaStreamDestroy(fill_stream);
 
     return d_output;
 }
