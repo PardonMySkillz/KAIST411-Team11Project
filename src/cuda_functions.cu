@@ -284,38 +284,38 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
     return device_output;
 }
 
-// Unused
 __global__ void _pad(float *input, float* output, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding) {
-    int new_height = height + top + bottom;
-    int new_width = width + left + right;
+    // Unused
+    // int new_height = height + top + bottom;
+    // int new_width = width + left + right;
 
-    float *ptri = input;
-    float *ptro = output;
-    for (int b = 0; b < batch_size; b++)
-        for (int c = 0; c < channels; c++)
-        {
-            // Pad the top
-            for (int i = 0; i < top * new_width; i++)
-                ptro[i] = padding;
+    // float *ptri = input;
+    // float *ptro = output;
+    // for (int b = 0; b < batch_size; b++)
+    //     for (int c = 0; c < channels; c++)
+    //     {
+    //         // Pad the top
+    //         for (int i = 0; i < top * new_width; i++)
+    //             ptro[i] = padding;
 
-            // Pad the middle
-            for (int i = 0; i < height; i++)
-            {
-                // Left
-                for (int j = 0; j < left; j++, ptro++)
-                    *ptro = padding;
-                //
-                for (int j = 0; j < height; j++, ptri++, ptro++)
-                    *ptro = *ptri;
-                // Right
-                for (int j = 0; j < right; j++, ptro++)
-                    *ptro = padding;
-            }
+    //         // Pad the middle
+    //         for (int i = 0; i < height; i++)
+    //         {
+    //             // Left
+    //             for (int j = 0; j < left; j++, ptro++)
+    //                 *ptro = padding;
+    //             //
+    //             for (int j = 0; j < height; j++, ptri++, ptro++)
+    //                 *ptro = *ptri;
+    //             // Right
+    //             for (int j = 0; j < right; j++, ptro++)
+    //                 *ptro = padding;
+    //         }
 
-            // Pad the end
-            for (int i = 0; i < bottom * new_width; i++, ptro++)
-                *ptro = padding;
-        }
+    //         // Pad the end
+    //         for (int i = 0; i < bottom * new_width; i++, ptro++)
+    //             *ptro = padding;
+    //     }
 }
 
 __global__ void _pad_fill(float* arr, int size, float value) {
@@ -333,12 +333,10 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
 
     int input_size = batch_size * channels * height * width;
     int output_size =  batch_size * channels * new_height * new_width;
-    // cudaMalloc((void **)&d_input, input_size);
+    
     cudaMalloc((void **)&d_output, sizeof(float) * output_size);
-
-    // cudaMemcpy(d_input, input_ptr, input_size, cudaMemcpyHostToDevice);
-    // cudaMemset(d_output, 0, output_size);
-
+    
+    // fill the array with padding then copy the initial matrix
     int blockSize = 256;
     int numBlocks = (output_size + blockSize - 1) / blockSize;
     _pad_fill<<<numBlocks, blockSize>>>(d_output, output_size, padding);
@@ -360,7 +358,6 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
         }
 
     cudaDeviceSynchronize();
-    // _pad<<<1,1>>>(d_input, d_output, batch_size, channels, height, width, left, right, top, bottom, padding);
 
 
     return d_output;
