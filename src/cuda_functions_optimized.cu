@@ -192,52 +192,42 @@ __global__ void _pad(float *input, float *output, int height, int width, int lef
 
 float *pad(float *input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding)
 {
-    float *d_input, *d_output;
+    float *d_input = input_ptr, *d_output;
     int new_height = height + top + bottom;
     int new_width = width + left + right;
 
     int input_size = batch_size * channels * height * width;
     int output_size = batch_size * channels * new_height * new_width;
 
+    int batchannels = batch_size * channels;
+
     cudaStream_t copy_stream, fill_stream;
     cudaStreamCreate(&copy_stream);
     cudaStreamCreate(&fill_stream);
 
-    // printf("Allocating %f MB...\n", (float)output_size / 1e6 * sizeof(float));
-    // printf("Allocating %f MB...\n", (float)input_size / 1e6 * sizeof(float));
-
-    cudaProfilerStart();
-    unsigned long long t1 = get_time_ns();
+    printf("Allocating %f MB...\n", (float)(input_size + output_size) / 1e6 * sizeof(float));
     
-    cudaMalloc((void **)&d_input, sizeof(float) * input_size);
+    // cudaMalloc((void **)&d_input, sizeof(float) * input_size);
+    // cudaMemcpyAsync(d_input, input_ptr, input_size * sizeof(float), cudaMemcpyHostToDevice, copy_stream);
+    
     cudaMalloc((void **)&d_output, sizeof(float) * output_size);
-    
-    unsigned long long t2 = get_time_ns();
-    
-    cudaMemcpyAsync(d_input, input_ptr, input_size * sizeof(float), cudaMemcpyHostToDevice, copy_stream);
-
-    int batchannels = batch_size * channels;
 
     // Fill array with padding
     int block_size = 1024;
     int num_blocks = CEIL_DIV(output_size, block_size);
     _pad_fill<<<num_blocks, block_size, 0, fill_stream>>>(d_output, output_size, padding, batchannels, height, width, new_height, new_width, top, left);
-    
-    unsigned long long t3 = get_time_ns();
 
     // Fill the rest
     int ewidth = min(block_size, width); // Effective width
     dim3 padGrid(CEIL_DIV(width, ewidth), height, batchannels);
     _pad<<<padGrid, ewidth, 0, copy_stream>>>(d_input, d_output, height, width, left, right, top, bottom);
+
     cudaDeviceSynchronize();
-    unsigned long long t4 = get_time_ns();
 
     cudaFree(d_input);
     cudaStreamDestroy(copy_stream);
     cudaStreamDestroy(fill_stream);
 
-    cudaProfilerStop();
-    printf("%.02f\n%.02f\n%.02f\n", (float)(t2-t1)/1e6, (float)(t3-t1)/1e6, (float)(t4-t1)/1e6);
     return d_output;
 }
 }

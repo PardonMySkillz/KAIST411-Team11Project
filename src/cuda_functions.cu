@@ -231,94 +231,55 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
 
 
 __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width) {
-    //define the parallell process: batch as one block, channel as one thread
-    int batch = blockIdx.x;
-    // int output_height = ((input_height - kernel_height) / stride) + 1;
-    // int output_width = ((input_width - kernel_width) / stride) + 1;
-    int output_size = output_height * output_width * input_channel * batch_size;
-
-    int out_c = threadIdx.x;
-
-    //commence the max pooling
-    for (int out_h = 0; out_h < output_height; out_h++) {
-        for (int out_w = 0; out_w < output_width; out_w++) {
-            //find the max value in the kernel
-            int i_h_start = out_h * stride;
-            int i_w_start = out_w * stride;
-            float max_val = 0.0;
-            //capture the max value in kernel
-            for (int i = 0; i < kernel_height; i++) {
-                for (int j = 0; j < kernel_width; j++) {
-                    float curr_value = input[batch * input_channel * input_height * input_width + out_c * input_height * input_width + (i_h_start + i) * input_width + (i_w_start + j)];
-                    if (curr_value > max_val) {
-                        max_val = curr_value;
+    //Most intuitive: <<<batch_size, inputChannel>>
+    int b = blockIdx.x;
+    int c = threadIdx.x;
+    printf("b: %d, c: %d\n", b, c);
+    for (int h = 0; h < output_height; h++) {
+        for (int w = 0; w < output_width; w++) {
+            int i_h_start = h * stride;
+            int i_w_start = w * stride;
+            float result = 0.0;
+            for (int kernel_h = 0; kernel_h < kernel_height; kernel_h++) {
+                for (int kernel_w = 0; kernel_w < kernel_width; kernel_w++) {
+                    for (int in_c = 0; in_c < input_channel; in_c++) {
+                        int i_h = i_h_start + kernel_h;
+                        int i_w = i_w_start + kernel_w;
+                        if (i_h >= 0 && i_h < input_height && i_w >= 0 && i_w < input_width) {
+                            int input_index = b * input_channel * input_height * input_width + in_c * input_height * input_width + i_h * input_width + i_w;
+                            if (input[input_index] > result) {
+                                result = input[input_index];
+                            }
+                        }
                     }
                 }
             }
-            //assign the max value to the output
-            output[batch * input_channel * output_height * output_width + out_c * output_height * output_width + out_h * output_width + out_w] = max_val;
-            
+            output[b*input_channel*output_height*output_width + c*output_height*output_width + h*output_width + w] = result;
         }
-    } 
+    }
 }
 
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
-    // float* output, *device_output, *device_input;
-    // int input_size = batch_size * input_channel * input_height * input_width;
-    
-    // int output_height = (input_height - kernel_height) / stride + 1;
-    // int output_width = (input_width - kernel_width) / stride + 1;
-    // int output_size = batch_size * input_channel * output_height * output_width;
+    float* d_input, *d_output;
 
-    // cudaMalloc((void **)&device_input, input_size * sizeof(float));
-    // cudaMalloc((void**)&device_output, output_size * sizeof(float));
+    int output_height = CEIL_DIV(input_height - kernel_height + 1, stride);
+    int output_width = CEIL_DIV(input_width - kernel_width + 1, stride);
+    int output_size = batch_size * input_channel * output_height * output_width;
 
-    // cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
-    // cudaMemset(device_output, 0, output_size*sizeof(float));
+    cudaMalloc((void**)&d_input, input_channel * input_height * input_width * batch_size * sizeof(float));
+    cudaMalloc((void**)&d_output, output_size * sizeof(float));
 
-    // dim3 threadsPerBlock(16, 16);
-    // dim3 numBlocks((output_width + threadsPerBlock.x - 1) / threadsPerBlock.x, (output_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    cudaMemcpy(d_input, input, input_channel * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
 
-    // _max_pool2d<<<numBlocks, threadsPerBlock>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output);
-    // cudaDeviceSynchronize();
-    // cudaFree(device_input);
-
-    // return device_output;
-    float* output, *device_output, *device_input;
-    int input_size = batch_size * input_channel * input_height * input_width;
-
-    int output_height = floor((input_height - kernel_height) / stride) + 1;
-    int output_width = floor((input_width - kernel_width) / stride) + 1;
-    int output_size = output_height * output_width * input_channel * batch_size;
-
-    cudaMalloc((void **)&device_input, input_size * sizeof(float));
-    cudaMalloc((void**)&device_output, input_size * sizeof(float));
-
-    cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
-    cudaMemset(device_output, 0, input_size*sizeof(float));
     dim3 grid(batch_size, input_channel);
-    dim3 block(CEIL_DIV(input_height, stride), CEIL_DIV(input_width, stride));
+    dim3 block(output_height, output_width);
 
-    //launch the kernel
-    _max_pool2d<<<grid, block>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_height, output_width);
+    _max_pool2d<<<batch_size, input_channel>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
 
-    //allocate memory for the output on the host
-    output = (float*)malloc(output_size * sizeof(float));
-    if (output == NULL) {
-        // Handle memory allocation error
-        return NULL;
-    }
-    // This is not required, you have to return the device_output --copy the result from device to host--
-    //cudaMemcpy(output, device_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
+    
 
-    //free device memory
-    cudaFree(device_input);
-    //cudaFree(device_output);
-
-    return device_output;
-
-
-
+    cudaFree(d_input);
+    return d_output;
 }
 
 // Unused
