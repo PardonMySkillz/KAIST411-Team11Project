@@ -23,90 +23,56 @@ extern "C"{
 
 // TODOs
 // implement CUDA optimized functions whose functionality complies with restricted PyTorch functions
-__global__ void _leaky_relu(float* input, float* output, int height, int width, float negative_slope){
-
+__global__ void _leaky_relu(float* input, float* output, int size, float negative_slope){
 
     uint index = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    output[index] = input[index] < 0 ?  negative_slope * input[index] : input[index];
 
+    if(index < size)
+        output[index] = input[index] * (input[index] < 0 ? negative_slope: 1);
 }
 float* leaky_relu(float* input, int height, int width, float negative_slope){
 
-    float *device_input, *device_output;
-    unsigned long size =  height * width;
+    float *device_output;
+    unsigned long size = height * width;
 
-    cudaMalloc((void **) &device_input, size * sizeof(float));
     cudaMalloc((void **) &device_output, size * sizeof(float));
 
-    cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(device_output, 0, size * sizeof(float));
+    int threadsPerBlock = 1024;
 
-    // dim3 threadsPerBlock(16);
-    // dim3 numBlock((height * width +threadsPerBlock.x - 1)/ threadsPerBlock.x);
-
-    // _leaky_relu<<<numBlock, threadsPerBlock>>>(device_input, device_output, height, width, negative_slope);
-
-    dim3 threadsPerBlock(height * width);
-
-    _leaky_relu<<<1, threadsPerBlock>>>(device_input, device_output, height, width, negative_slope);
-
-    cudaDeviceSynchronize();
-
-    cudaFree(device_input);
+    _leaky_relu<<<CEIL_DIV(size, threadsPerBlock), threadsPerBlock>>>(input, device_output, size, negative_slope);
 
     return device_output;
 
 }
 
-__global__ void _batch_norm(float* input, float* output, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
+__global__ void _batch_norm(float *input, float *output, int channels, int sz2d, float *running_mean, float *running_var, float *weight, float *bias)
+{
 
-    uint batch = blockIdx.x;
-    uint channel = blockIdx.y;
+    uint b = blockIdx.x;
+    uint c = blockIdx.y;
 
-    uint row = threadIdx.x;
-    uint col = threadIdx.y;
+    uint idx = blockIdx.z * blockDim.x + threadIdx.x;
 
-    uint io_index = batch * channels * height * width + channel * height * width + row * width + col;
+    uint io_index = b * channels * sz2d + c * sz2d + idx;
 
     float e = 1e-5;
-    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / sqrt(running_var[channel] + e)) + bias[channel];
-
+    if (idx < sz2d)
+        output[io_index] = weight[c] * ((input[io_index] - running_mean[c]) / __fsqrt_rd(running_var[c] + e)) + bias[c];
 }
+
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
-    float* output, *device_input, *device_output;
-    float *d_running_mean, *d_running_var, *d_weight, *d_bias;
-    unsigned long io_size = batch_size * channels * height * width * sizeof(float);
-    unsigned long mv_size = channels*sizeof(float);
+    float *device_output;
+    int sz2d = height * width;
+    unsigned long io_size = batch_size * channels * sz2d * sizeof(float);
 
-
-    output = (float*)malloc(io_size);
-
-    cudaMalloc((void**) &device_input, io_size);
     cudaMalloc((void**) &device_output, io_size);
-    cudaMemcpy(device_input, input, io_size, cudaMemcpyHostToDevice);
 
-    cudaMalloc((void**) &d_running_mean, mv_size);
-    cudaMalloc((void**) &d_running_var, mv_size);
-    cudaMalloc((void**) &d_weight, mv_size);
-    cudaMalloc((void**) &d_bias, mv_size);
-    cudaMemcpy(d_running_mean, running_mean, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_running_var, running_var, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_weight, weight, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_bias, bias, mv_size, cudaMemcpyHostToDevice);
+    int threadsPerBlock = 1024;
+    dim3 numBlocks(batch_size, channels, CEIL_DIV(sz2d, threadsPerBlock));
 
-    dim3 numBlocks(batch_size, channels);
-    dim3 threadsPerBlock(height, width);
-
-    _batch_norm<<<numBlocks, threadsPerBlock>>>(device_input, device_output, batch_size, channels, height, width, d_running_mean, d_running_var, d_weight, d_bias);
+    _batch_norm<<<numBlocks, threadsPerBlock>>>(input, device_output, channels, sz2d, running_mean, running_var, weight, bias);
 
     cudaDeviceSynchronize();
-
-    cudaFree(device_input);
-    cudaFree(d_running_mean);
-    cudaFree(d_running_var);
-    cudaFree(d_bias);
-    cudaFree(d_weight);
 
     return device_output;
 
@@ -115,54 +81,34 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
 __global__ void _conv2d(){}
 float* conv2d(){}
 
-__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output){
-    // Commented out for bugs - Aziz
-    // const uint col = blockIdx.x * blockDim.x + threadIdx.x;
-    // const uint row = blockIdx.y * blockDim.y + threadIdx.y;
-    
-    
-    // if (col < input_width && row < input_height) {
-    //     for (int b = 0; b < batch_size; b++) {
-    //         for (int c=0; c < input_channel; c++) {                
-    //             int start_row = row * stride;
-    //             int start_col = col * stride;
+__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width){
+    int batch = blockIdx.x;
+    int channel = blockIdx.y;
+    int row = threadIdx.x;
+    int col = threadIdx.y;
+    int start_row = row * stride;
+    int start_col = col * stride;
 
-    //             float max_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (start_row * input_width) + start_col];
-    //             __shared__ float shared_input[kernel_height * kernel_width]; //shared memory for input
-    //             shared_input[threadIdx.y * kernel_width + threadIdx.x] = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + threadIdx.y) * input_width) + (start_col + threadIdx.x)];
-    //             __syncthreads();
+    extern __shared__ float shared_input[];
 
-    //             for (int i = 0; i < kernel_height; i++) {
-    //                 for (int j = 0; j < kernel_width; j++) {
-    //                     float curr_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + i) * input_width) + (start_col + j)];
-    //                     if (curr_value > max_value) {
-    //                         max_value = curr_value;
-    //                     }
-    //                 }
-    //             }
-    //             output[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (row * input_width) + col] = max_value;
-
-    //         }
-    //     }
-    // }
 }
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
-    float* output, *device_output, *device_input;
-    int size = batch_size * input_channel * input_height * input_width;
-    cudaMalloc((void**)&device_input, size * sizeof(float));
-    cudaMalloc((void**)&device_output, size * sizeof(float));
+    float* d_input, *d_output;
 
-    cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemset(device_output, 0, size * sizeof(float));
-    dim3 threadPerBlock(32, 32);
-    dim3 numBlocks((input_width + threadPerBlock.x - 1) / threadPerBlock.x, (input_height + threadPerBlock.y - 1) / threadPerBlock.y);
-    _max_pool2d<<<numBlocks, threadPerBlock>>>(batch_size, device_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, device_output);
-    
-    output = (float*)malloc(size * sizeof(float));
-    cudaMemcpy(output, device_output, size * sizeof(float), cudaMemcpyDeviceToHost);
-    cudaFree(device_input);
-    cudaFree(device_output);
-    return output;
+    int output_height = floor((input_height - kernel_height) / stride) + 1;
+    int output_width = floor((input_width - kernel_width) / stride) + 1;
+    int output_size = batch_size * input_channel * output_height * output_width;
+
+    cudaMalloc((void**)&d_input, input_channel * input_height * input_width * batch_size * sizeof(float));
+    cudaMalloc((void**)&d_output, output_size * sizeof(float));
+    cudaMemcpy(d_input, input, input_channel * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
+
+    dim3 threadPerBlock(output_height, output_width);
+    dim3 numBlocks(batch_size, input_channel);
+    _max_pool2d<<<numBlocks, threadPerBlock>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
+    cudaDeviceSynchronize();
+    cudaFree(d_input);
+    return d_output;
 }
 
 __global__ void _pad(float *input, float *output, int size, int height, int width, int left, int right, int top, int bottom, int sz2d, float padding)

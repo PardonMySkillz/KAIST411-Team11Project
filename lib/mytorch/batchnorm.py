@@ -74,7 +74,7 @@ class BatchNorm2d(Functional):
         running_mean_array = cast(running_mean['pointer'], POINTER(c_float))
         running_var_array = cast(running_var['pointer'], POINTER(c_float))
         cu_dll.batch_norm.restype = POINTER(c_float)
-        output_ptr = cu_dll.batch_norm(
+        output_ptr = cuo_dll.batch_norm(
             activation_c, c_int32(batch_size), c_int32(channel), c_int32(height), c_int32(width),
             running_mean_array, running_var_array,
             weight_array, bias_array

@@ -68,9 +68,6 @@ float* leaky_relu(float* input, int height, int width, float negative_slope){
 
     _leaky_relu<<<CEIL_DIV(size, threadsPerBlock), threadsPerBlock>>>(device_input, device_output, size, negative_slope);
 
-
-    cuda_free(device_input);
-
     return device_output;
 
 }
@@ -90,7 +87,7 @@ __global__ void _batch_norm(float* input, float* output, int channels, int heigh
 
 }
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
-    float *device_input, *device_output;
+    float *device_output;
     unsigned long io_size = batch_size * channels * height * width * sizeof(float);
 
     cudaMalloc((void**) &device_output, io_size);

@@ -54,7 +54,7 @@ class LeakyReLU(Functional):
         activation_c = cast(activation_ptr, POINTER(c_float))
         height, width = activation_shape
 
-        cu_dll.leaky_relu.restype = POINTER(c_float)
+        cuo_dll.leaky_relu.restype = POINTER(c_float)
 
         output_ptr = cu_dll.leaky_relu(activation_c, c_int32(height), c_int32(width), c_float(negative_slope))
 
