@@ -1,7 +1,7 @@
 from .base import Functional, c_dll, cu_dll, cuo_dll
 import torch
 import numpy as np
-import ctypes
+from ctypes import *
 
 class MaxPool2d(Functional):
     """
@@ -32,38 +32,15 @@ class MaxPool2d(Functional):
         return torch.nn.functional.max_pool2d(activation, kernel, stride=stride)
 
     def c(self, activation, kernel, stride):
-        activation_ptr = activation['pointer']
-        activation_shape = activation['shape']
-        activation_c = ctypes.cast(activation_ptr, ctypes.POINTER(ctypes.c_float))
+        batch_size, in_channels, input_height, input_width = activation['shape']
+        output_height = (input_height - kernel) // stride + 1
+        output_width = (input_width - kernel) // stride + 1
 
-        N, ic, h, w = activation_shape
-        kernel_width = kernel
-        kernel_height = kernel
-        input_height = h
-        input_width = w
-
-        output_height = (input_height-kernel_height) // stride +1
-        output_width = (input_width-kernel_width) // stride +1
-        output_size = output_height*output_width
-
+        input_ptr = cast(activation['pointer'], POINTER(c_float))
+        output = c_dll.max_pool2d(batch_size, input_ptr, c_int32(in_channels), c_int32(input_height), c_int32(input_width),
+                                  c_int32(kernel),c_int32(kernel), c_int32(stride))
         
-        # c_dll.max_pool2d.restype = ctypes.POINTER(ctypes.c_float)
-        # c_dll.max_pool2d.argtypes = (ctypes.POINTER(ctypes.c_float), ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int)
-
-        output_ptr = c_dll.max_pool2d (
-            activation_c,
-            ctypes.c_int32(input_height),
-            ctypes.c_int32(input_width),
-            ctypes.c_int32(kernel_width),
-            ctypes.c_int32(kernel_height),
-            ctypes.c_int32(stride)
-        )
-        output = []
-        output_shape = (N, ic, output_height, output_width)
-        output.append(output_ptr)
-        output.append(output_shape)
-        
-        return output
+        return output, (batch_size, in_channels, output_height, output_width)
         
     
     def cuda(self, activation, kernel, stride):

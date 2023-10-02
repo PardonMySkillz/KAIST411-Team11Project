@@ -261,23 +261,24 @@ __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int
 }
 
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
-    float* output, *device_output, *device_input;
-    int size = batch_size * input_channel * input_height * input_width;
-    cudaMalloc((void**)&device_input, size * sizeof(float));
-    cudaMalloc((void**)&device_output, size * sizeof(float));
+    // Commented out for bugs - Aziz
+    // float* output, *device_output, *device_input;
+    // int size = batch_size * input_channel * input_height * input_width;
+    // cudaMalloc((void**)&device_input, size * sizeof(float));
+    // cudaMalloc((void**)&device_output, size * sizeof(float));
 
-    cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
-    cudaMemset(device_output, 0, output_size*sizeof(float));
+    // cudaMemcpy(device_input, input, input_size, cudaMemcpyHostToDevice);
+    // cudaMemset(device_output, 0, output_size*sizeof(float));
 
-    dim3 threadsPerBlock(16, 16);
-    dim3 numBlocks((output_width + threadsPerBlock.x - 1) / threadsPerBlock.x, (output_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
+    // dim3 threadsPerBlock(16, 16);
+    // dim3 numBlocks((output_width + threadsPerBlock.x - 1) / threadsPerBlock.x, (output_height + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
-    _max_pool2d<<<numBlocks, threadsPerBlock>>>(device_input, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_width, output_height);
-    cudaDeviceSynchronize();
-    cudaMemcpy(output, device_output,output_size, cudaMemcpyDeviceToHost);
-    cudaFree(device_input);
-    cudaFree(device_output);
-    return output;
+    // _max_pool2d<<<numBlocks, threadsPerBlock>>>(device_input, input_height, input_width, kernel_height, kernel_width, stride, device_output, output_width, output_height);
+    // cudaDeviceSynchronize();
+    // cudaMemcpy(output, device_output,output_size, cudaMemcpyDeviceToHost);
+    // cudaFree(device_input);
+    // cudaFree(device_output);
+    // return output;
 }
 
 

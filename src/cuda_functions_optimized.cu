@@ -101,34 +101,35 @@ __global__ void _conv2d(){}
 float* conv2d(){}
 
 __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output){
-    const uint col = blockIdx.x * blockDim.x + threadIdx.x;
-    const uint row = blockIdx.y * blockDim.y + threadIdx.y;
+    // Commented out for bugs - Aziz
+    // const uint col = blockIdx.x * blockDim.x + threadIdx.x;
+    // const uint row = blockIdx.y * blockDim.y + threadIdx.y;
     
     
-    if (col < input_width && row < input_height) {
-        for (int b = 0; b < batch_size; b++) {
-            for (int c=0; c < input_channel; c++) {                
-                int start_row = row * stride;
-                int start_col = col * stride;
+    // if (col < input_width && row < input_height) {
+    //     for (int b = 0; b < batch_size; b++) {
+    //         for (int c=0; c < input_channel; c++) {                
+    //             int start_row = row * stride;
+    //             int start_col = col * stride;
 
-                float max_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (start_row * input_width) + start_col];
-                __shared__ float shared_input[kernel_height * kernel_width]; //shared memory for input
-                shared_input[threadIdx.y * kernel_width + threadIdx.x] = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + threadIdx.y) * input_width) + (start_col + threadIdx.x)];
-                __syncthreads();
+    //             float max_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (start_row * input_width) + start_col];
+    //             __shared__ float shared_input[kernel_height * kernel_width]; //shared memory for input
+    //             shared_input[threadIdx.y * kernel_width + threadIdx.x] = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + threadIdx.y) * input_width) + (start_col + threadIdx.x)];
+    //             __syncthreads();
 
-                for (int i = 0; i < kernel_height; i++) {
-                    for (int j = 0; j < kernel_width; j++) {
-                        float curr_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + i) * input_width) + (start_col + j)];
-                        if (curr_value > max_value) {
-                            max_value = curr_value;
-                        }
-                    }
-                }
-                output[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (row * input_width) + col] = max_value;
+    //             for (int i = 0; i < kernel_height; i++) {
+    //                 for (int j = 0; j < kernel_width; j++) {
+    //                     float curr_value = input[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + ((start_row + i) * input_width) + (start_col + j)];
+    //                     if (curr_value > max_value) {
+    //                         max_value = curr_value;
+    //                     }
+    //                 }
+    //             }
+    //             output[(b * input_channel * input_height * input_width) + (c * input_height * input_width) + (row * input_width) + col] = max_value;
 
-            }
-        }
-    }
+    //         }
+    //     }
+    // }
 }
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
     float* output, *device_output, *device_input;
