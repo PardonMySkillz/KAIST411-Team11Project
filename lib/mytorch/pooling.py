@@ -44,7 +44,15 @@ class MaxPool2d(Functional):
         
     
     def cuda(self, activation, kernel, stride):
-        # TODO
+        batch_size, in_channels, input_height, input_width = activation['shape']
+        output_height = (input_height - kernel) // stride + 1
+        output_width = (input_width - kernel) // stride + 1
+
+        input_ptr = cast(activation['pointer'], POINTER(c_float))
+        output = cu_dll.max_pool2d(batch_size, input_ptr, c_int32(in_channels), c_int32(input_height), c_int32(input_width),
+                                  c_int32(kernel),c_int32(kernel), c_int32(stride))
+        
+        return output, (batch_size, in_channels, output_height, output_width)
         pass
     
     def cuda_optimized(self, activation, kernel, stride):
