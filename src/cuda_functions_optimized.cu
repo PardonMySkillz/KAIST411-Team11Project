@@ -5,6 +5,20 @@
 
 #define CEIL_DIV(X, Y) (((X)+(Y)-1)/(Y))
 
+#include <time.h>
+unsigned long long get_time_ns()
+{
+    struct timespec ts;
+
+    if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts) == -1)
+    {
+        printf("clock_gettime error\n");
+        exit(-1);
+    }
+
+    return ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
+
 extern "C"{
 
 // TODOs
@@ -151,44 +165,79 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
     return output;
 }
 
-__global__ void _pad_fill(float *arr, int size, float value)
+__global__ void _pad_fill(float *arr, int size, float value, int bcs, int height, int width, int new_height, int new_width, int top, int left)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int bc = idx % bcs;
+    int y = (bc / new_width) - top;
+    int x = (bc % new_width) - left;
+    if (x < 0 || width <= x || y < 0 || height <= y)
+        arr[idx] = value;
+}
 
-    for (int i = idx; i < size; i += gridDim.x * blockDim.x)
-        arr[i] = value;
+__global__ void _pad(float *input, float *output, int height, int width, int left, int right, int top, int bottom)
+{
+    int new_height = height + top + bottom;
+    int new_width = width + left + right;
+
+    int x = threadIdx.x + blockDim.x * blockIdx.x;
+    int y = blockIdx.y;
+    int bc = blockIdx.z;
+    float *bci = input + bc * height * width;
+    float *bco = output + bc * new_height * new_width + new_width * top + left;
+    if(x < width) {
+        bco[new_width * y + x] = bci[width * y + x];
+    }
 }
 
 float *pad(float *input_ptr, int batch_size, int channels, int height, int width, int left, int right, int top, int bottom, float padding)
 {
-    float *d_output;
+    float *d_input, *d_output;
     int new_height = height + top + bottom;
     int new_width = width + left + right;
 
+    int input_size = batch_size * channels * height * width;
     int output_size = batch_size * channels * new_height * new_width;
 
-    printf("Allocating %d bytes...\n", output_size);
+    cudaStream_t copy_stream, fill_stream;
+    cudaStreamCreate(&copy_stream);
+    cudaStreamCreate(&fill_stream);
+
+    // printf("Allocating %f MB...\n", (float)output_size / 1e6 * sizeof(float));
+    // printf("Allocating %f MB...\n", (float)input_size / 1e6 * sizeof(float));
+
     cudaProfilerStart();
+    unsigned long long t1 = get_time_ns();
+    
+    cudaMalloc((void **)&d_input, sizeof(float) * input_size);
     cudaMalloc((void **)&d_output, sizeof(float) * output_size);
+    
+    unsigned long long t2 = get_time_ns();
+    
+    cudaMemcpyAsync(d_input, input_ptr, input_size * sizeof(float), cudaMemcpyHostToDevice, copy_stream);
 
-    int blockSize = 256;
-    int numBlocks = (output_size + blockSize - 1) / blockSize;
-    _pad_fill<<<numBlocks, blockSize>>>(d_output, output_size, padding);
+    int batchannels = batch_size * channels;
+
+    // Fill array with padding
+    int block_size = 1024;
+    int num_blocks = CEIL_DIV(output_size, block_size);
+    _pad_fill<<<num_blocks, block_size, 0, fill_stream>>>(d_output, output_size, padding, batchannels, height, width, new_height, new_width, top, left);
+    
+    unsigned long long t3 = get_time_ns();
+
+    // Fill the rest
+    int ewidth = min(block_size, width); // Effective width
+    dim3 padGrid(CEIL_DIV(width, ewidth), height, batchannels);
+    _pad<<<padGrid, ewidth, 0, copy_stream>>>(d_input, d_output, height, width, left, right, top, bottom);
     cudaDeviceSynchronize();
+    unsigned long long t4 = get_time_ns();
 
-    for (int b = 0; b < batch_size; b++)
-        for (int c = 0; c < channels; c++)
-        {
-            int old_offset = b * channels * height * width + c * height * width;
-            int new_offset = b * channels * new_height * new_width + c * new_height * new_width + top * new_width;
-            for (int i = 0; i < height; i++)
-                cudaMemcpyAsync(d_output + new_offset + i * new_width + left, input_ptr + old_offset + i * width, width * sizeof(float), cudaMemcpyHostToDevice);
-        }
-
-    cudaDeviceSynchronize();
+    cudaFree(d_input);
+    cudaStreamDestroy(copy_stream);
+    cudaStreamDestroy(fill_stream);
 
     cudaProfilerStop();
-
+    printf("%.02f\n%.02f\n%.02f\n", (float)(t2-t1)/1e6, (float)(t3-t1)/1e6, (float)(t4-t1)/1e6);
     return d_output;
 }
 }
