@@ -64,4 +64,4 @@ class MaxPool2d(Functional):
                                   c_int32(kernel),c_int32(kernel), c_int32(stride))
         
         return output, (batch_size, in_channels, output_height, output_width)
-        pass
+        

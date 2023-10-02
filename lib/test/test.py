@@ -13,6 +13,13 @@ validations = [
     test_pad
 ]
 
+stress = [
+    stress_leaky_relu, 
+    stress_batch_norm, 
+    stress_conv2d,
+    stress_maxpool_2d, 
+    stress_pad
+]
 performance = {
     "stress_leaky_relu": stress_leaky_relu, 
     "stress_batch_norm": stress_batch_norm, 
@@ -43,6 +50,9 @@ if __name__ == "__main__":
     
     if args[1] == 'validations':
         for test in validations:
+            test(rm)
+    elif args[1] == 'stress':
+        for test in stress:
             test(rm)
     elif args[1] in performance.keys():
         performance[args[1]](rm)

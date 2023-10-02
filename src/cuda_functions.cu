@@ -46,11 +46,11 @@ void block_cpu(){
 //   CUDA function
 //   Interface function that calls CUDA function
 // Note that interface function gets the float pointer already malloced at GPU
-__global__ void _leaky_relu(float* input, float* output, int height, int width, float negative_slope){
+__global__ void _leaky_relu(float* input, float* output, int size, float negative_slope){
 
-    uint index = threadIdx.x;
-    
-    output[index] = input[index] < 0 ? input[index] * negative_slope : input[index];
+    uint index = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if(index < size) output[index] = input[index] < 0 ? input[index] * negative_slope : input[index];
 
 }
 float* leaky_relu(float* input, int height, int width, float negative_slope){
@@ -64,11 +64,10 @@ float* leaky_relu(float* input, int height, int width, float negative_slope){
     cudaMemcpy(device_input, input, size * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemset(device_output, 0, size * sizeof(float));
 
-    dim3 threadsPerBlock(height * width, 1, 1);
+    int threadsPerBlock = 256;
 
-    _leaky_relu<<<1, threadsPerBlock>>>(device_input, device_output, height, width, negative_slope);
+    _leaky_relu<<<CEIL_DIV(size, threadsPerBlock), threadsPerBlock>>>(device_input, device_output, size, negative_slope);
 
-    cudaDeviceSynchronize();
 
     cuda_free(device_input);
 
@@ -76,54 +75,32 @@ float* leaky_relu(float* input, int height, int width, float negative_slope){
 
 }
 
-__global__ void _batch_norm(float* input, float* output, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
+__global__ void _batch_norm(float* input, float* output, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
 
-    uint batch = blockIdx.x;
-    uint channel = blockIdx.y;
+    uint b = blockIdx.x;
+    uint c = blockIdx.y;
 
-    uint row = threadIdx.x;
-    uint col = threadIdx.y;
+    uint idx = blockIdx.z * 256 + threadIdx.x;
 
-    uint io_index = batch * channels * height * width + channel * height * width + row * width + col;
+    uint io_index = b * channels * height * width + c * height * width + idx;
 
     float e = 1e-5;
-    output[io_index] = weight[channel] * ((input[io_index] - running_mean[channel]) / sqrt(running_var[channel] + e)) + bias[channel];
+    if(idx < width * height)
+        output[io_index] = weight[c] * ((input[io_index] - running_mean[c]) / sqrt(running_var[c] + e)) + bias[c];
 
 }
 float* batch_norm(float* input, int batch_size, int channels, int height, int width, float* running_mean, float* running_var, float* weight, float* bias){
-    float* output, *device_input, *device_output;
-    float *d_running_mean, *d_running_var, *d_weight, *d_bias;
+    float *device_input, *device_output;
     unsigned long io_size = batch_size * channels * height * width * sizeof(float);
-    unsigned long mv_size = channels*sizeof(float);
 
-
-    output = (float*)malloc(io_size);
-
-    cudaMalloc((void**) &device_input, io_size);
     cudaMalloc((void**) &device_output, io_size);
-    cudaMemcpy(device_input, input, io_size, cudaMemcpyHostToDevice);
 
-    cudaMalloc((void**) &d_running_mean, mv_size);
-    cudaMalloc((void**) &d_running_var, mv_size);
-    cudaMalloc((void**) &d_weight, mv_size);
-    cudaMalloc((void**) &d_bias, mv_size);
-    cudaMemcpy(d_running_mean, running_mean, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_running_var, running_var, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_weight, weight, mv_size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_bias, bias, mv_size, cudaMemcpyHostToDevice);
+    int threadsPerBlock = 256;
+    dim3 numBlocks(batch_size, channels, CEIL_DIV(height * width, threadsPerBlock));
 
-    dim3 numBlocks(batch_size, channels);
-    dim3 threadsPerBlock(height, width);
-
-    _batch_norm<<<numBlocks, threadsPerBlock>>>(device_input, device_output, batch_size, channels, height, width, d_running_mean, d_running_var, d_weight, d_bias);
+    _batch_norm<<<numBlocks, threadsPerBlock>>>(input, device_output, channels, height, width, running_mean, running_var, weight, bias);
 
     cudaDeviceSynchronize();
-
-    cudaFree(device_input);
-    cudaFree(d_running_mean);
-    cudaFree(d_running_var);
-    cudaFree(d_bias);
-    cudaFree(d_weight);
 
     return device_output;
 
