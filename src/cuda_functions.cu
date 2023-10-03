@@ -235,10 +235,7 @@ float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_h
     int output_width = (input_width - kernel_width) / stride + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
-    printf("Alloc %f MB\n", (float)output_size * 4e-6);
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
-
-    printf("%d x %d -> %d x %d\n", input_height, input_width, output_height, output_width);
 
     // Smallest ow * oh = 32 * 32
     int blockSize = 256;
