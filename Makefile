@@ -10,10 +10,10 @@ c: $(SRC_DIR)/c_functions.c
 	gcc -Ofast -shared -fPIC -o $(BUILD_DIR)/lib_c_functions.so $^
 
 cuda: $(SRC_DIR)/cuda_functions.cu
-	nvcc -Xcompiler -fPIC -shared -O3 -o $(BUILD_DIR)/lib_cuda_functions.so $^
+	nvcc -Xcompiler -fPIC -shared -O3 --ptxas-options=-v -o $(BUILD_DIR)/lib_cuda_functions.so $^
 
 cuda_optimized: $(SRC_DIR)/cuda_functions_optimized.cu
-	nvcc -Xcompiler -fPIC -shared -O3 -o $(BUILD_DIR)/lib_cuda_functions_optimized.so $^
+	nvcc -Xcompiler -fPIC -shared -O3 --ptxas-options=-v -o $(BUILD_DIR)/lib_cuda_functions_optimized.so $^
 
 clean:
 	rm -rf $(BUILD_DIR)

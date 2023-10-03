@@ -81,40 +81,97 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
 __global__ void _conv2d(){}
 float* conv2d(){}
 
-__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width){
-    int batch = blockIdx.x;
-    int channel = blockIdx.y;
-    int row = threadIdx.x;
-    int col = threadIdx.y;
+__global__ void _max_pool2d_naive(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
+    int batchannel = blockIdx.y;
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
     
+    if(idx >= output_height * output_width) return;
 
-    int start_row = row * stride;
-    int start_col = col * stride;
-    float max_value = input[batch * input_channel * input_height * input_width + channel * input_height * input_width + start_row * input_width + start_col];
-    for (int i=0; i < kernel_height; i++) {
-        for (int j=0; j < kernel_width; j++) {
-            float curr_value = input[batch * input_channel * input_height * input_width + channel * input_height * input_width + (start_row + i) * input_width + start_col + j];
-            if (curr_value > max_value) {
-                max_value = curr_value;
-            }
-        }
-    }
-    output[batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col] = max_value;
+    // division and modulo are one instruction (can be mentioned as optimization)
+    int yo = idx / output_width;
+    int xo = idx % output_width;
+    
+    int yi = yo * stride;
+    int xi = xo * stride;
+
+    float *imagi = input + batchannel * input_height * input_width;
+    float* imago = output + batchannel * output_height * output_width;
+
+    float max_val = imagi[input_width * yi + xi];
+    for(int i=yi; i < kernel + yi; i++)
+        for(int j=xi; j < kernel + xi; j++)
+            max_val = fmaxf(max_val, imagi[input_width * i + j]);
+    
+    imago[idx] = max_val;
 }
-float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
-    float* d_input, *d_output;
 
-    int output_height = floor((input_height - kernel_height) / stride) + 1;
-    int output_width = floor((input_width - kernel_width) / stride) + 1;
+#define MAX_POOL_1D_BLOCK 256
+#define MAX_POOL_1D_WIDTH 1024
+__global__ void _max_pool2d_1d(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
+    __shared__ float smem[MAX_POOL_1D_WIDTH];
+    int batchannel = blockIdx.y;
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    // int slice = kernel / stride;
+
+    if(idx >= output_height * output_width) return;
+
+    // division and modulo are one instruction (can be mentioned as optimization)
+    int yo = idx / output_width;
+    int xo = idx % output_width;
+    
+    int yi = yo * stride;
+    int xi = xo * stride;
+
+    float *imagi = input + batchannel * input_height * input_width;
+    float* imago = output + batchannel * output_height * output_width;
+
+    for(int xii = xi; xii < input_width; xii += blockDim.x * stride) {
+        float max_val = __FLT_MIN__;
+        int e = min(stride + xii, input_width);
+        for (int i = yi; i < kernel + yi; i++)
+            for (int j = xii; j < e; j++)
+                max_val = fmaxf(max_val, imagi[input_width * i + j]);
+        smem[xii / stride] = max_val;
+    }
+
+    __syncthreads();
+
+    for(int xii = xi; xii < input_width; xii += blockDim.x * stride) {
+        float max_val = __FLT_MIN__;
+        int e = (kernel + xii) / stride;
+        for(int j=xii / stride; j < e; j++)
+            max_val = fmaxf(max_val, smem[j]);
+        
+        imago[output_width * xo + yo] = max_val;
+    }
+}
+
+float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_height, int input_width, int kernel, int _deprecated, int stride){
+    float *d_output;
+
+    int output_height = (input_height - kernel) / stride + 1;
+    int output_width = (input_width - kernel) / stride + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
-    cudaMalloc((void**)&d_input, input_channel * input_height * input_width * batch_size * sizeof(float));
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
-    cudaMemcpy(d_input, input, input_channel * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
 
-    dim3 threadPerBlock(output_height, output_width);
-    dim3 numBlocks(batch_size, input_channel);
-    _max_pool2d<<<numBlocks, threadPerBlock>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
+    // Smallest ow * oh = 32 * 32
+
+    // Most of these conditions are for simplification, they can be relaxed if there are relevant checks in the kernel
+    printf("%d %d %d\n", stride < kernel, kernel % stride == 0, output_width % stride == 0);
+    if(stride < kernel && kernel % stride == 0) { // 1D SHARED MEMORY KERNEL
+        printf("Using 1D max_pool...\n");
+        int blockSize = min(MAX_POOL_1D_BLOCK, output_width);
+        dim3 numBlocks(output_height, batch_size * input_channel, 1);
+        _max_pool2d_1d<<<numBlocks, blockSize>>>(d_input, input_height, input_width, kernel, stride, d_output, output_height, output_width);
+    } else { // No need for shared memory if it will not be used
+        int blockSize = 256;
+        dim3 numBlocks(CEIL_DIV(output_height * output_width, blockSize), batch_size * input_channel, 1);
+        
+        _max_pool2d_naive<<<numBlocks, blockSize>>>(d_input, input_height, input_width, kernel, stride, d_output, output_height, output_width);
+    }
+    cudaDeviceSynchronize();
+
     cudaFree(d_input);
     return d_output;
 }
