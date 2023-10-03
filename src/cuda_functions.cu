@@ -211,16 +211,24 @@ __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int
         for (int col = 0; col < output_width; col++) {
             int start_row = row * stride;
             int start_col = col * stride;
-            float max_value = input[batch * input_channel * input_height * input_width + channel * input_height *input_width + start_row * input_width + start_col];
+            float max_value = 0.0;
             for (int i =0; i < kernel_height; i++) {
                 for (int j = 0; j < kernel_width; j++) {
-                    float curr_value = input[batch * input_channel * input_height * input_width + channel * input_height *input_width + (start_row + i) * input_width + start_col + j];
-                    if (curr_value > max_value) {
-                        max_value = curr_value;
+                    for (int in_c = 0; in_c < input_channel; in_c++) {
+                        int i_h = start_row + i;
+                        int i_w = start_col + j;
+                        if (i_h >= 0 && i_h < input_height && i_w >= 0 && i_w < input_width) {
+                            int input_index = batch * input_channel * input_height * input_width + in_c * input_height * input_width + i_h * input_width + i_w;
+                            if (input[input_index] > max_value) {
+                                max_value = input[input_index];
+                            }
+                        
+                        }
                     }
                 }
             }
-            output[batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col] = max_value;
+            int output_index = batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col;
+            output[output_index] = max_value;
         }
     }
 }
