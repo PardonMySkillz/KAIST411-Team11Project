@@ -204,52 +204,48 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
 }
 
 
-__global__ void _max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride, float* output, int output_height, int output_width) {
-    int batch = blockIdx.x;
-    int channel = threadIdx.x;
-    for (int row = 0; row < output_height; row++) {
-        for (int col = 0; col < output_width; col++) {
-            int start_row = row * stride;
-            int start_col = col * stride;
-            float max_value = 0.0;
-            for (int i =0; i < kernel_height; i++) {
-                for (int j = 0; j < kernel_width; j++) {
-                    for (int in_c = 0; in_c < input_channel; in_c++) {
-                        int i_h = start_row + i;
-                        int i_w = start_col + j;
-                        if (i_h >= 0 && i_h < input_height && i_w >= 0 && i_w < input_width) {
-                            int input_index = batch * input_channel * input_height * input_width + in_c * input_height * input_width + i_h * input_width + i_w;
-                            if (input[input_index] > max_value) {
-                                max_value = input[input_index];
-                            }
-                        
-                        }
-                    }
-                }
-            }
-            int output_index = batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col;
-            output[output_index] = max_value;
-        }
-    }
+__global__ void _max_pool2d(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
+    int batchannel = blockIdx.y;
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    
+    if(idx >= output_height * output_width) return;
+
+    // division and modulo are one instruction (can be mentioned as optimization)
+    int yo = idx / output_width;
+    int xo = idx % output_width;
+    
+    int yi = yo * stride;
+    int xi = xo * stride;
+
+    float *imagi = input + batchannel * input_height * input_width;
+    float* imago = output + batchannel * output_height * output_width;
+
+    float max_val = imagi[input_width * yi + xi];
+    for(int i=yi; i < kernel + yi; i++)
+        for(int j=xi; j < kernel + xi; j++)
+            max_val = fmaxf(max_val, imagi[input_width * i + j]);
+    
+    imago[idx] = max_val;
 }
 
-float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
-    float* d_input, *d_output;
+float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
+    float *d_output;
 
-    int output_height = floor((input_height - kernel_height) / stride) + 1;
-    int output_width = floor((input_width - kernel_width) / stride) + 1;
+    int output_height = (input_height - kernel_height) / stride + 1;
+    int output_width = (input_width - kernel_width) / stride + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
-    cudaMalloc((void**)&d_input, input_channel * input_height * input_width * batch_size * sizeof(float));
+    printf("Alloc %f MB\n", (float)output_size * 4e-6);
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
 
-    cudaMemcpy(d_input, input, input_channel * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
+    printf("%d x %d -> %d x %d\n", input_height, input_width, output_height, output_width);
 
+    // Smallest ow * oh = 32 * 32
+    int blockSize = 256;
+    dim3 numBlocks(CEIL_DIV(output_height * output_width, blockSize), batch_size * input_channel, 1);
 
-
-    _max_pool2d<<<batch_size, input_channel>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
-
-    
+    _max_pool2d<<<numBlocks, blockSize>>>(d_input, input_height, input_width, kernel_height, stride, d_output, output_height, output_width);
+    cudaDeviceSynchronize();
 
     cudaFree(d_input);
     return d_output;
