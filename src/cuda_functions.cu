@@ -77,7 +77,7 @@ __global__ void _batch_norm(float* input, float* output, int channels, int heigh
     uint b = blockIdx.x;
     uint c = blockIdx.y;
 
-    uint idx = blockIdx.z * 256 + threadIdx.x;
+    uint idx = blockIdx.z * 128 + threadIdx.x;
 
     uint io_index = b * channels * height * width + c * height * width + idx;
 
@@ -92,7 +92,7 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
 
     cudaMalloc((void**) &device_output, io_size);
 
-    int threadsPerBlock = 256;
+    int threadsPerBlock = 128;
     dim3 numBlocks(batch_size, channels, CEIL_DIV(height * width, threadsPerBlock));
 
     _batch_norm<<<numBlocks, threadsPerBlock>>>(input, device_output, channels, height, width, running_mean, running_var, weight, bias);

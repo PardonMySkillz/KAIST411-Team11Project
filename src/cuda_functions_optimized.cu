@@ -67,7 +67,7 @@ float* batch_norm(float* input, int batch_size, int channels, int height, int wi
 
     cudaMalloc((void**) &device_output, io_size);
 
-    int threadsPerBlock = 1024;
+    int threadsPerBlock = 128;
     dim3 numBlocks(batch_size, channels, CEIL_DIV(sz2d, threadsPerBlock));
 
     _batch_norm<<<numBlocks, threadsPerBlock>>>(input, device_output, channels, sz2d, running_mean, running_var, weight, bias);
@@ -86,11 +86,20 @@ __global__ void _max_pool2d(int batch_size, float* input, int input_channel, int
     int channel = blockIdx.y;
     int row = threadIdx.x;
     int col = threadIdx.y;
+    
+
     int start_row = row * stride;
     int start_col = col * stride;
-
-    extern __shared__ float shared_input[];
-
+    float max_value = input[batch * input_channel * input_height * input_width + channel * input_height * input_width + start_row * input_width + start_col];
+    for (int i=0; i < kernel_height; i++) {
+        for (int j=0; j < kernel_width; j++) {
+            float curr_value = input[batch * input_channel * input_height * input_width + channel * input_height * input_width + (start_row + i) * input_width + start_col + j];
+            if (curr_value > max_value) {
+                max_value = curr_value;
+            }
+        }
+    }
+    output[batch * input_channel * output_height * output_width + channel * output_height * output_width + row * output_width + col] = max_value;
 }
 float* max_pool2d(int batch_size, float* input, int input_channel, int input_height, int input_width, int kernel_height, int kernel_width, int stride){
     float* d_input, *d_output;
@@ -106,7 +115,6 @@ float* max_pool2d(int batch_size, float* input, int input_channel, int input_hei
     dim3 threadPerBlock(output_height, output_width);
     dim3 numBlocks(batch_size, input_channel);
     _max_pool2d<<<numBlocks, threadPerBlock>>>(batch_size, d_input, input_channel, input_height, input_width, kernel_height, kernel_width, stride, d_output, output_height, output_width);
-    cudaDeviceSynchronize();
     cudaFree(d_input);
     return d_output;
 }
