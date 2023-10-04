@@ -117,14 +117,10 @@ __global__ void _conv2d(int batch_size, float* input, int input_channels, int in
                         if ((kernel_index - root_out_c * input_channels * kernel_height * kernel_width) < 1024*k && (kernel_index - root_out_c * input_channels * kernel_height * kernel_width) >= 0){
                             
                             result += input[input_index] * kernel_shared[kernel_index - root_out_c * input_channels * kernel_height * kernel_width];
-                            // result += kernel_shared[kernel_index - root_out_c * input_channels * kernel_height * kernel_width];                      
-                            // result += input[input_index] * weight[kernel_index];
                         }
                         else{
                             result += input[input_index] * weight[kernel_index];
-                        }
-                        // result += input[input_index] * weight[kernel_index];
-                        
+                        }                        
                     }
                 }
             }
@@ -138,50 +134,14 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
               float* weight, float* bias, int kernel_height, int kernel_width,
               int output_channel, int output_height, int output_width, int stride){
     int output_size = batch_size * output_channel * output_height * output_width;
-    float* d_input;
-    float* d_weight;
-    float* d_bias;
     float* d_output;
-    // Allocate device memory
-    cudaMalloc((void**)&d_input, input_channels * input_height * input_width * batch_size * sizeof(float));
-    cudaMalloc((void**)&d_weight, input_channels * kernel_height * kernel_width * output_channel * sizeof(float));
-    cudaMalloc((void**)&d_bias, output_channel * sizeof(float));
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
 
-    // Copy data from host to device
-    cudaMemcpy(d_input, input, input_channels * input_height * input_width * batch_size * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_weight, weight, input_channels * kernel_height * kernel_width * output_channel * sizeof(float), cudaMemcpyHostToDevice);
-    if (bias != NULL){
-    cudaMemcpy(d_bias, bias, output_channel * sizeof(float), cudaMemcpyHostToDevice);
-    }
-    else{
-        d_bias = NULL;
-    }
-    // Configure grid and block dimensions
-    dim3 grid(batch_size, output_channel);
-    dim3 block(output_height, output_width);
-    // Launch the CUDA kernel
-
-    
-    _conv2d<<<CEIL_DIV(output_size, 1024), 1024>>>(batch_size, d_input, input_channels, input_height, input_width, 
-                    d_weight, d_bias, kernel_height, kernel_width,
+    _conv2d<<<CEIL_DIV(output_size, 1024), 1024>>>(batch_size, input, input_channels, input_height, input_width, 
+                    weight, bias, kernel_height, kernel_width,
                     output_channel, output_height, output_width, stride, d_output);
-    
-    // Allocate memory for the output on the host
-    float* output = (float*)malloc(output_size * sizeof(float));
-    if (output == NULL) {
-        // Handle memory allocation error
-        return NULL;
-    }
-    // Copy the result from device to host
-    // cudaMemcpy(output, d_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
-    // Free device memory
-    cudaFree(d_input);
-    cudaFree(d_weight);
-    
+    cudaDeviceSynchronize();
     return d_output;
-
-
 }
 
 
