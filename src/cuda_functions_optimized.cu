@@ -4,6 +4,7 @@
 #include <cuda_profiler_api.h>
 
 #define CEIL_DIV(X, Y) (((X)+(Y)-1)/(Y))
+#define FLOAT_MIN -1e38
 
 #include <time.h>
 unsigned long long get_time_ns()
@@ -145,6 +146,7 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
 }
 
 
+
 __global__ void _max_pool2d_naive(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
     int batchannel = blockIdx.y;
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -170,15 +172,15 @@ __global__ void _max_pool2d_naive(float* input, int input_height, int input_widt
 }
 
 #define MAX_POOL_1D_BLOCK 256
-#define MAX_POOL_1D_WIDTH 1024
+#define MAX_POOL_1D_WIDTH 2048
 __global__ void _max_pool2d_1d(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
-    __shared__ float smem[MAX_POOL_1D_WIDTH];
+    extern __shared__ float smem[];
     int batchannel = blockIdx.y;
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int idx = output_width * blockIdx.x + threadIdx.x;
     // int slice = kernel / stride;
 
     if(idx >= output_height * output_width) return;
-
+    // if(idx == 0) pritnf("%d x %d\n", blockDim.x, )
     // division and modulo are one instruction (can be mentioned as optimization)
     int yo = idx / output_width;
     int xo = idx % output_width;
@@ -189,24 +191,24 @@ __global__ void _max_pool2d_1d(float* input, int input_height, int input_width, 
     float *imagi = input + batchannel * input_height * input_width;
     float* imago = output + batchannel * output_height * output_width;
 
-    for(int xii = xi; xii < input_width; xii += blockDim.x * stride) {
-        float max_val = __FLT_MIN__;
-        int e = min(stride + xii, input_width);
-        for (int i = yi; i < kernel + yi; i++)
-            for (int j = xii; j < e; j++)
-                max_val = fmaxf(max_val, imagi[input_width * i + j]);
-        smem[xii / stride] = max_val;
+    // GMEM coalescing
+    for(int j = threadIdx.x; j < input_width; j += blockDim.x) {
+        float max_val = FLOAT_MIN;
+        for (int i = yi; i < kernel + yi; i++) {
+            max_val = fmaxf(max_val, imagi[input_width * i + j]);
+        }
+        smem[j] = max_val;
     }
 
     __syncthreads();
 
-    for(int xii = xi; xii < input_width; xii += blockDim.x * stride) {
-        float max_val = __FLT_MIN__;
-        int e = (kernel + xii) / stride;
-        for(int j=xii / stride; j < e; j++)
+    for(int xoo = xo; xoo < output_width; xoo += blockDim.x) {
+        float max_val = FLOAT_MIN;
+        xi = xoo * stride;
+        for(int j = xi; j < xi + kernel; j++)
             max_val = fmaxf(max_val, smem[j]);
-        
-        imago[output_width * xo + yo] = max_val;
+
+        imago[output_width * yo + xoo] = max_val;
     }
 }
 
@@ -217,28 +219,38 @@ float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_h
     int output_width = (input_width - kernel) / stride + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
+    cudaProfilerStart();
+
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
 
     // Smallest ow * oh = 32 * 32
 
     // Most of these conditions are for simplification, they can be relaxed if there are relevant checks in the kernel
-    printf("%d %d %d\n", stride < kernel, kernel % stride == 0, output_width % stride == 0);
-    if(stride < kernel && kernel % stride == 0) { // 1D SHARED MEMORY KERNEL
+    if(stride < kernel) { // 1D SHARED MEMORY KERNEL
+#ifdef DEBUG
         printf("Using 1D max_pool...\n");
+#endif    
+    
         int blockSize = min(MAX_POOL_1D_BLOCK, output_width);
         dim3 numBlocks(output_height, batch_size * input_channel, 1);
-        _max_pool2d_1d<<<numBlocks, blockSize>>>(d_input, input_height, input_width, kernel, stride, d_output, output_height, output_width);
+        int smem_size = input_width * sizeof(float);
+
+        _max_pool2d_1d<<<numBlocks, blockSize, smem_size>>>(d_input, input_height, input_width, kernel, stride, d_output, output_height, output_width);
     } else { // No need for shared memory if it will not be used
         int blockSize = 256;
         dim3 numBlocks(CEIL_DIV(output_height * output_width, blockSize), batch_size * input_channel, 1);
-        
+
         _max_pool2d_naive<<<numBlocks, blockSize>>>(d_input, input_height, input_width, kernel, stride, d_output, output_height, output_width);
     }
     cudaDeviceSynchronize();
 
     cudaFree(d_input);
+
+    cudaProfilerStop();
+
     return d_output;
 }
+
 
 __global__ void _pad(float *input, float *output, int size, int height, int width, int left, int right, int top, int bottom, int sz2d, float padding)
 {
