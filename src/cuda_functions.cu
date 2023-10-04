@@ -107,12 +107,7 @@ __global__ void _conv2d(int batch_size, float* input, int input_channels, int in
                               float* weight, float* bias, int kernel_height, int kernel_width,
                               int output_channel, int output_height, int output_width, int stride, float* output) {
     int batch = blockIdx.x;
-    // int out_c = blockIdx.y;
-    // int out_h = threadIdx.x;
-    // int out_w = threadIdx.y;
     int out_c = threadIdx.x;
-    // for (int batch = 0; batch < batch_size; batch++){
-    // for (int out_c = 0; out_c < output_channel; out_c++){
     for (int out_h = 0; out_h < output_height; out_h++){
         for (int out_w = 0; out_w < output_width; out_w++){
             int i_h_start = out_h * stride;
@@ -137,14 +132,9 @@ __global__ void _conv2d(int batch_size, float* input, int input_channels, int in
             }
             int output_index = batch * output_channel * output_height * output_width + out_c * output_height * output_width + out_h * output_width + out_w;
             output[output_index] = result;
-            // if (output_index < 10){
-            //     printf("index: %d; result: %f", output_index, result);
-            // }    
             
         }
     }
-    // }
-    // }
 }
 float* conv2d(int batch_size, float* input, int input_channels, int input_height, int input_width,
               float* weight, float* bias, int kernel_height, int kernel_width,
@@ -154,9 +144,6 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
     float* d_weight;
     float* d_bias;
     float* d_output;
-    // for (int i = 0; i < 10; i++){
-    //     printf("aaaaaaaaa %f\n", input[i]);
-    // }
     // Allocate device memory
     cudaMalloc((void**)&d_input, input_channels * input_height * input_width * batch_size * sizeof(float));
     cudaMalloc((void**)&d_weight, input_channels * kernel_height * kernel_width * output_channel * sizeof(float));
@@ -188,16 +175,11 @@ float* conv2d(int batch_size, float* input, int input_channels, int input_height
         return NULL;
     }
 
-    // Copy the result from device to host
-    // cudaMemcpy(output, d_output, output_size * sizeof(float), cudaMemcpyDeviceToHost);
     
     // Free device memory
     cudaFree(d_input);
     cudaFree(d_weight);
-    // cudaFree(d_output);
-    // for (int i = 0; i < 10; i++){
-    //     printf("aaaaaaaaa %f\n", output[i]);
-    // }
+
     return d_output;
 
 
