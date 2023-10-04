@@ -11,8 +11,8 @@ NORMAL = "\033[0m"
 BOLD_GREEN = "\033[0;32;1m"
 BOLD_RED = "\033[0;31;1m"
 
-PASSED = f"{BOLD_GREEN}passed{NORMAL}"
-FAILED = f"{BOLD_RED}failed{NORMAL}"
+PASSED = "passed" #f"{BOLD_GREEN}passed{NORMAL}"
+FAILED = "failed" #f"{BOLD_RED}failed{NORMAL}"
 
 def np_randn(*args):
     res = np.random.randn(*args)

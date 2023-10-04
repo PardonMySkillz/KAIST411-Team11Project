@@ -172,7 +172,6 @@ __global__ void _max_pool2d_naive(float* input, int input_height, int input_widt
 }
 
 #define MAX_POOL_1D_BLOCK 256
-#define MAX_POOL_1D_WIDTH 2048
 __global__ void _max_pool2d_1d(float* input, int input_height, int input_width, int kernel, int stride, float* output, int output_height, int output_width) {
     extern __shared__ float smem[];
     int batchannel = blockIdx.y;
@@ -219,8 +218,6 @@ float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_h
     int output_width = (input_width - kernel) / stride + 1;
     int output_size = batch_size * input_channel * output_height * output_width;
 
-    cudaProfilerStart();
-
     cudaMalloc((void**)&d_output, output_size * sizeof(float));
 
     // Smallest ow * oh = 32 * 32
@@ -246,15 +243,13 @@ float* max_pool2d(int batch_size, float* d_input, int input_channel, int input_h
 
     cudaFree(d_input);
 
-    cudaProfilerStop();
-
     return d_output;
 }
 
 
 __global__ void _pad(float *input, float *output, int size, int height, int width, int left, int right, int top, int bottom, int sz2d, float padding)
 {
-    int new_height = height + top + bottom;
+    // int new_height = height + top + bottom;
     int new_width = width + left + right;
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -265,7 +260,7 @@ __global__ void _pad(float *input, float *output, int size, int height, int widt
     int x = (off % new_width) - left;
 
     float *bci = input + bc * height * width;
-    float *bco = output + bc * new_height * new_width + new_width * top + left;
+    // float *bco = output + bc * new_height * new_width + new_width * top + left;
 
     if (x < 0 || width <= x || y < 0 || height <= y)
         output[idx] = padding;
@@ -282,7 +277,7 @@ float *pad(float *input_ptr, int batch_size, int channels, int height, int width
     // int input_size = batch_size * channels * height * width;
     int output_size = batch_size * channels * new_height * new_width;
 
-    int batchannels = batch_size * channels;
+    // int batchannels = batch_size * channels;
 
 #ifdef DEBUG
     printf("Allocating %f MB...\n", (float)(output_size) / 1e6 * sizeof(float));
